@@ -84,8 +84,8 @@ function tick(milliseconds) {
  */
 async function setup() {
     window.gl = document.querySelector('canvas').getContext('webgl2')
-    const vs = await fetch('/js/vertex.glsl').then(res => res.text())
-    const fs = await fetch('/js/fragment.glsl').then(res => res.text())
+    const vs = await fetch('js/vertex.glsl').then(res => res.text())
+    const fs = await fetch('js/fragment.glsl').then(res => res.text())
     window.program = compile(vs, fs)
     tick(0) // <- ensure this function is called only once, at the end of setup
 }
