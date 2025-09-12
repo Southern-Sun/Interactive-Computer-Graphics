@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 import numpy as np
 from PIL import Image
 
-Point = namedtuple("Point", "x y z w")
-Color = namedtuple("Color", "r g b a")
+Point = namedtuple("Point", "x y z w", defaults=(None, None, 0, 1))
+Color = namedtuple("Color", "r g b a", defaults=(None, None, None, 1))
 TexCoord = namedtuple("TexCoord", "s t")
 PointSize = namedtuple("PointSize", "size")
 Element = namedtuple("Element", "index")
@@ -30,8 +30,8 @@ class Rasterizer:
     uniform_matrix: np.ndarray = None
 
     # Buffers
-    position: list[Point] = field(default_factory=list)
-    color: list[Color] = field(default_factory=list)
+    positions: list[Point] = field(default_factory=list)
+    colors: list[Color] = field(default_factory=list)
     texture_coords: list[TexCoord] = field(default_factory=list)
     point_sizes: list[PointSize] = field(default_factory=list)
     elements: list[Element] = field(default_factory=list)
