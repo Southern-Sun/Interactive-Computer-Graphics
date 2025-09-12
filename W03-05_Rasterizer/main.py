@@ -4,28 +4,33 @@ import sys
 import numpy as np
 from PIL import Image
 
-from src.rasterizer import (
+from src.point import (
     Color,
     Element,
-    Point,
     PointSize,
-    Rasterizer,
+    Position,
     TexCoord,
 )
+from src.rasterizer import Rasterizer
+
+DEBUG = False
 
 def repackage_args(args: list[str], group_length: int = 1) -> list[tuple[int]]:
     """Convert inputs to integers, then repackage them into groups"""
-    arg_generator = (int(arg) for arg in args)
+    arg_generator = (float(arg.strip()) for arg in args)
     output = []
     while True:
         # Consume the generator one group at a time
         try:
             output.append(tuple(next(arg_generator) for _ in range(group_length)))
-        except StopIteration:
+        except (StopIteration, RuntimeError):
             return output
 
+if DEBUG:
+    command_file = "W03-05_Rasterizer/files/core/rast-gray.txt"
+else:  
+    command_file = sys.argv[1]
 
-command_file = sys.argv[1]
 if "file=" in command_file:
     _, _, command_file = command_file.partition("=")
 
@@ -70,16 +75,17 @@ with open(command_file, "r") as f:
             # 7.4 Buffers
             case ["position", size, *coords]:
                 coords = repackage_args(coords, group_length=int(size))
-                rasterizer.positions = [Point(*coord) for coord in coords]
+                # Little type-casting dance here to enforce defaults
+                rasterizer.set_buffer("position", [Position(*coord) for coord in coords])
             case ["color", size, *colors]:
                 colors = repackage_args(colors, group_length=int(size))
-                rasterizer.colors = [Color(*color) for color in colors]
+                rasterizer.set_buffer("color", [Color(*color) for color in colors])
             case ["texcoord", size, *coords]:
                 coords = repackage_args(coords, group_length=int(size))
-                rasterizer.texture_coords = [TexCoord(*coord) for coord in coords]
+                rasterizer.set_buffer("texture_coord", [TexCoord(*coord) for coord in coords])
             case ["pointsize", size, *point_sizes]:
                 point_sizes = repackage_args(point_sizes, group_length=int(size))
-                rasterizer.point_sizes = [PointSize(*point_size) for point_size in point_sizes]
+                rasterizer.set_buffer("point_size", [PointSize(*point_size) for point_size in point_sizes])
             case ["elements", *elements]:
                 elements = repackage_args(elements, group_length=int(size))
                 rasterizer.elements = [Element(*element) for element in elements]
@@ -96,4 +102,4 @@ with open(command_file, "r") as f:
             case _:
                 pass
     
-rasterizer.save()
+# rasterizer.save()
