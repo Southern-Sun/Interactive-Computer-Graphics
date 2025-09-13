@@ -27,7 +27,7 @@ def repackage_args(args: list[str], group_length: int = 1) -> list[tuple[int]]:
             return output
 
 if DEBUG:
-    command_file = "W03-05_Rasterizer/files/core/rast-gray.txt"
+    command_file = "W03-05_Rasterizer/files/core/rast-checkers.txt"
 else:  
     command_file = sys.argv[1]
 
@@ -37,7 +37,7 @@ if "file=" in command_file:
 rasterizer = Rasterizer()
 
 with open(command_file, "r") as f:
-    for line in f:
+    for line_number, line in enumerate(f):
         line = line.strip()
         args = [arg for arg in line.split(" ") if arg]
         match args:
@@ -47,6 +47,7 @@ with open(command_file, "r") as f:
                 rasterizer.image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
                 rasterizer.width = width
                 rasterizer.height = height
+                rasterizer.filename = filename
 
             # 7.2 Modes
             case ["depth"]:
@@ -95,7 +96,7 @@ with open(command_file, "r") as f:
 
             # 7.5 Commands
             case ["drawArraysTriangles", first, count]:
-                rasterizer.draw_arrays_triangles(first=int(first), count=int(count))
+                rasterizer.draw_arrays_triangles(first=int(first), count=int(count), line=line_number)
             case ["drawElementsTriangles", count, offset]:
                 rasterizer.draw_elements_triangles(count=int(count), offset=int(offset))
             case ["drawArraysPoints", first, count]:
