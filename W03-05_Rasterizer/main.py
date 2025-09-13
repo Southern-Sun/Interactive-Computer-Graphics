@@ -105,7 +105,4 @@ if __name__ == "__main__":
     else:  
         command_file = sys.argv[1]
 
-    if "file=" in command_file:
-        _, _, command_file = command_file.partition("=")
-
     process_file(command_file)
