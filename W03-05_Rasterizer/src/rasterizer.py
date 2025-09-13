@@ -10,13 +10,6 @@ from .point import (
     Point,
 )
 
-# First, I need a class which represents the WHOLE point so we can interpolate everything
-# It needs to support division by w where w gets stored as 1/w so we can undo the division
-# after interpolation. The same method should do that just fine in both directions
-
-# Next, those normalized device coordinates will be -1 to 1 in x, y, z. I need to do a viewport
-# transformation that then moves these into the device coordinates by adding 1, dividing 2, and
-# multiplying by height (y) or width (x).
 
 @dataclass
 class Rasterizer:
@@ -112,6 +105,15 @@ class Rasterizer:
         this has been completed so we don't repeatedly convert the same points for overlapping draw
         calls.
         """
+        if self.device_coords_flag:
+            return
+
+        self.points = [
+            point.divide_by_w().to_device_coordinates(self.width, self.height) 
+            for point in self.points
+        ]
+
+        self.device_coords_flag = True
 
     def draw_arrays_triangles(self, first: int, count: int) -> None:
         """
@@ -124,11 +126,19 @@ class Rasterizer:
         draws a triangle with vertices position[first+count-3], position[first+count-2], 
             position[first+count-1] and corresponding color and texcoords
         """
+        self.to_device_coordinates()
+
         # Take advantage of the assertion count % 3 == 0 to instead iterate count / 3 times
+        j = 0
         for i in range(first, first + count, 3):
             points = [point for point in self.points[i:i+3]]
             for fragment in Rasterizer.scanline(*points):
                 print(fragment)
+                print(fragment.undo_divide_by_w())
+                j += 1
+                if j > 5:
+                    break
+            break
 
     def draw_elements_triangles(self, count: int, offset: int) -> None:
         """
@@ -139,6 +149,7 @@ class Rasterizer:
             position[elements[offset+5]] and corresponding color and texcoords
         … and so on up to position[element[offset+count-1]]
         """
+        self.to_device_coordinates()
 
     def draw_arrays_points(self, first: int, count: int) -> None:
         """
@@ -151,6 +162,7 @@ class Rasterizer:
             (1,1)(1,1) in its bottom-right corner; this is similar to the built-in gl_PointCoord 
             in WebGL2
         """
+        self.to_device_coordinates()
 
     def save(self) -> None:
         """Save the image to disk"""
