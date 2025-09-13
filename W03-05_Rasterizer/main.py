@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 import sys
 
 import numpy as np
@@ -6,14 +7,11 @@ from PIL import Image
 
 from src.point import (
     Color,
-    Element,
     PointSize,
     Position,
     TexCoord,
 )
 from src.rasterizer import Rasterizer
-
-DEBUG = False
 
 def repackage_args(args: list[str], group_length: int = 1) -> list[tuple[int]]:
     """Convert inputs to integers, then repackage them into groups"""
@@ -26,84 +24,88 @@ def repackage_args(args: list[str], group_length: int = 1) -> list[tuple[int]]:
         except (StopIteration, RuntimeError):
             return output
 
-if DEBUG:
-    command_file = "W03-05_Rasterizer/files/core/rast-checkers.txt"
-else:  
-    command_file = sys.argv[1]
+def process_file(command_file: str) -> Path:
+    rasterizer = Rasterizer()
 
-if "file=" in command_file:
-    _, _, command_file = command_file.partition("=")
+    with open(command_file, "r") as f:
+        for line_number, line in enumerate(f):
+            line = line.strip()
+            args = [arg for arg in line.split(" ") if arg]
+            match args:
+                # 7.1 Create Image
+                case ["png", width, height, filename]:
+                    width, height = int(width), int(height)
+                    rasterizer.image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+                    rasterizer.width = width
+                    rasterizer.height = height
+                    rasterizer.filename = filename
 
-rasterizer = Rasterizer()
+                # 7.2 Modes
+                case ["depth"]:
+                    rasterizer.depth = True
+                case ["sRGB"]:
+                    rasterizer.srgb = True
+                case ["hyp"]:
+                    rasterizer.hyperbolic = True
+                case ["fsaa", level]:
+                    rasterizer.fsaa = int(level)
+                case ["cull"]:
+                    rasterizer.cull_backfaces = True
+                case ["decals"]:
+                    rasterizer.decals = True
+                case ["frustrum"]:
+                    rasterizer.frustrum_clipping = True
 
-with open(command_file, "r") as f:
-    for line_number, line in enumerate(f):
-        line = line.strip()
-        args = [arg for arg in line.split(" ") if arg]
-        match args:
-            # 7.1 Create Image
-            case ["png", width, height, filename]:
-                width, height = int(width), int(height)
-                rasterizer.image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-                rasterizer.width = width
-                rasterizer.height = height
-                rasterizer.filename = filename
+                # 7.3 Uniform State
+                case ["texture", filename]:
+                    rasterizer.texture = Image.open(filename)
+                case ["uniformMatrix", *elements]:
+                    # Package the matrix into an ndarray
+                    elements = [int(element) for element in elements]
+                    shape = int(math.sqrt(len(elements)))
+                    array = np.array(elements)
+                    array.resize((shape, shape))
+                    rasterizer.uniform_matrix = array
 
-            # 7.2 Modes
-            case ["depth"]:
-                rasterizer.depth = True
-            case ["sRGB"]:
-                rasterizer.srgb = True
-            case ["hyp"]:
-                rasterizer.hyperbolic = True
-            case ["fsaa", level]:
-                rasterizer.fsaa = int(level)
-            case ["cull"]:
-                rasterizer.cull_backfaces = True
-            case ["decals"]:
-                rasterizer.decals = True
-            case ["frustrum"]:
-                rasterizer.frustrum_clipping = True
+                # 7.4 Buffers
+                case ["position", size, *coords]:
+                    coords = repackage_args(coords, group_length=int(size))
+                    # Little type-casting dance here to enforce defaults
+                    rasterizer.set_buffer("position", [Position(*coord) for coord in coords])
+                case ["color", size, *colors]:
+                    colors = repackage_args(colors, group_length=int(size))
+                    rasterizer.set_buffer("color", [Color(*color) for color in colors])
+                case ["texcoord", size, *coords]:
+                    coords = repackage_args(coords, group_length=int(size))
+                    rasterizer.set_buffer("texture_coord", [TexCoord(*coord) for coord in coords])
+                case ["pointsize", size, *point_sizes]:
+                    point_sizes = repackage_args(point_sizes, group_length=int(size))
+                    rasterizer.set_buffer("point_size", [PointSize(*point_size) for point_size in point_sizes])
+                case ["elements", *elements]:
+                    rasterizer.elements = [int(element) for element in elements]
 
-            # 7.3 Uniform State
-            case ["texture", filename]:
-                rasterizer.texture = Image.open(filename)
-            case ["uniformMatrix", *elements]:
-                # Package the matrix into an ndarray
-                elements = [int(element) for element in elements]
-                shape = int(math.sqrt(len(elements)))
-                array = np.array(elements)
-                array.resize((shape, shape))
-                rasterizer.uniform_matrix = array
+                # 7.5 Commands
+                case ["drawArraysTriangles", first, count]:
+                    rasterizer.draw_arrays_triangles(first=int(first), count=int(count), line=line_number)
+                case ["drawElementsTriangles", count, offset]:
+                    rasterizer.draw_elements_triangles(count=int(count), offset=int(offset))
+                case ["drawArraysPoints", first, count]:
+                    rasterizer.draw_arrays_points(first=int(first), count=int(count))
 
-            # 7.4 Buffers
-            case ["position", size, *coords]:
-                coords = repackage_args(coords, group_length=int(size))
-                # Little type-casting dance here to enforce defaults
-                rasterizer.set_buffer("position", [Position(*coord) for coord in coords])
-            case ["color", size, *colors]:
-                colors = repackage_args(colors, group_length=int(size))
-                rasterizer.set_buffer("color", [Color(*color) for color in colors])
-            case ["texcoord", size, *coords]:
-                coords = repackage_args(coords, group_length=int(size))
-                rasterizer.set_buffer("texture_coord", [TexCoord(*coord) for coord in coords])
-            case ["pointsize", size, *point_sizes]:
-                point_sizes = repackage_args(point_sizes, group_length=int(size))
-                rasterizer.set_buffer("point_size", [PointSize(*point_size) for point_size in point_sizes])
-            case ["elements", *elements]:
-                elements = repackage_args(elements, group_length=int(size))
-                rasterizer.elements = [Element(*element) for element in elements]
+                # Default (ignore blank lines, comments, etc)
+                case _:
+                    pass
+        
+    rasterizer.render()
 
-            # 7.5 Commands
-            case ["drawArraysTriangles", first, count]:
-                rasterizer.draw_arrays_triangles(first=int(first), count=int(count), line=line_number)
-            case ["drawElementsTriangles", count, offset]:
-                rasterizer.draw_elements_triangles(count=int(count), offset=int(offset))
-            case ["drawArraysPoints", first, count]:
-                rasterizer.draw_arrays_points(first=int(first), count=int(count))
+if __name__ == "__main__":  
+    DEBUG = False
+    if DEBUG:
+        command_file = "W03-05_Rasterizer/files/core/rast-checkers.txt"
+    else:  
+        command_file = sys.argv[1]
 
-            # Default (ignore blank lines, comments, etc)
-            case _:
-                pass
-    
-rasterizer.save()
+    if "file=" in command_file:
+        _, _, command_file = command_file.partition("=")
+
+    process_file(command_file)
