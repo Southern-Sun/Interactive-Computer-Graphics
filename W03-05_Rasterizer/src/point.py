@@ -95,12 +95,22 @@ class Point(np.ndarray):
         self[self.POSITION] = value
 
     @property
+    def integer_position(self) -> Position:
+        """Returns the position cast to integers for printing"""
+        return Position(*map(int, self[self.POSITION]))
+
+    @property
     def color(self) -> Color:
         return Color(*map(float, self[self.COLOR]))
 
     @color.setter
     def color(self, value: Color) -> None:
         self[self.COLOR] = value
+
+    @property
+    def rgba_color(self) -> Color:
+        """Returns the color vector * 255 as ints for printing"""
+        return Color(*map(int, self[self.COLOR] * 255))
 
     @property
     def texture_coord(self) -> TexCoord:
