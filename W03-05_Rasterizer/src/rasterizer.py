@@ -13,9 +13,6 @@ from .point import (
 
 @dataclass
 class Rasterizer:
-    # Flag when we've moved to device coords so we don't have to re-compute every draw call
-    device_coords_flag: bool = False
-
     # Image
     image: Image.Image = None
     width: int = None
@@ -36,7 +33,7 @@ class Rasterizer:
     uniform_matrix: np.ndarray = None
 
     # Buffers
-    points: list[Point] = None
+    points: list[Point] = field(default_factory=list)
     elements: list[Element] = field(default_factory=list)
 
     def set_buffer(
@@ -46,9 +43,9 @@ class Rasterizer:
     ):
         """
         Set the attributes of the given buffer.
-        The first call to this method initializes the buffer to length = len(values)
+        Calling this method with a different buffer length will clear the buffer automatically
         """
-        if self.points is None:
+        if len(self.points) != len(values):
             self.points = [Point() for _ in range(len(values))]
         
         for point, value in zip(self.points, values):
@@ -99,23 +96,18 @@ class Rasterizer:
                 for point in Rasterizer.dda(a, b, dimension=0):
                     yield point
 
-    def to_device_coordinates(self) -> None:
+    def get_device_coordinates(self) -> None:
         """
         Converts the given view coordinates to device coordinates and sets the flag indicating that
         this has been completed so we don't repeatedly convert the same points for overlapping draw
         calls.
         """
-        if self.device_coords_flag:
-            return
-
-        self.points = [
+        return [
             point.divide_by_w().to_device_coordinates(self.width, self.height) 
             for point in self.points
         ]
 
-        self.device_coords_flag = True
-
-    def draw_arrays_triangles(self, first: int, count: int) -> None:
+    def draw_arrays_triangles(self, first: int, count: int, line) -> None:
         """
         count will be a multiple of 3 (this is not required in WebGL2)
         draws a triangle with vertices position[first+0], position[first+1], position[first+2] and 
@@ -126,20 +118,24 @@ class Rasterizer:
         draws a triangle with vertices position[first+count-3], position[first+count-2], 
             position[first+count-1] and corresponding color and texcoords
         """
-        self.to_device_coordinates()
+        # Normalize the points to device coordinates. Because we often reuse parts of the buffer
+        # but not others, we have to recalculate this on every draw call.
+        device_coords = self.get_device_coordinates()
 
         # Take advantage of the assertion count % 3 == 0 to instead iterate count / 3 times
-        j = 0
         for i in range(first, first + count, 3):
-            points = [point for point in self.points[i:i+3]]
+            points = [point for point in device_coords[i:i+3]]
             for fragment in Rasterizer.scanline(*points):
-                print(fragment)
-                print(fragment.undo_divide_by_w())
-                j += 1
-                if j > 5:
-                    break
-            break
+                fragment = fragment.undo_divide_by_w()
+                position = fragment.integer_position
 
+                # Some pixels may be off-screen
+                on_screen = (0 <= position.x < self.width) & (0 <= position.y < self.height)
+                if not on_screen:
+                    continue
+
+                self.image.putpixel((position.x, position.y), fragment.rgba_color)
+                
     def draw_elements_triangles(self, count: int, offset: int) -> None:
         """
         count will be a multiple of 3 (this is not required in WebGL2)
@@ -149,7 +145,9 @@ class Rasterizer:
             position[elements[offset+5]] and corresponding color and texcoords
         … and so on up to position[element[offset+count-1]]
         """
-        self.to_device_coordinates()
+        # Normalize the points to device coordinates. Because we often reuse parts of the buffer
+        # but not others, we have to recalculate this on every draw call.
+        device_coords = self.get_device_coordinates()
 
     def draw_arrays_points(self, first: int, count: int) -> None:
         """
@@ -162,7 +160,9 @@ class Rasterizer:
             (1,1)(1,1) in its bottom-right corner; this is similar to the built-in gl_PointCoord 
             in WebGL2
         """
-        self.to_device_coordinates()
+        # Normalize the points to device coordinates. Because we often reuse parts of the buffer
+        # but not others, we have to recalculate this on every draw call.
+        device_coords = self.get_device_coordinates()
 
     def save(self) -> None:
         """Save the image to disk"""
