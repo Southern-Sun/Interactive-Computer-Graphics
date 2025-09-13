@@ -56,6 +56,36 @@ class Point(np.ndarray):
         if obj is None:
             return
 
+    def __str__(self):
+        return f"Point[{self.position}, {self.color}, {self.texture_coord}, {self.point_size}]"
+
+    def divide_by_w(self) -> "Point":
+        """Perform the divide by w operation"""
+        w = self.position.w
+        self = self / w
+        self[3] = 1 / w
+        return self
+    
+    def undo_divide_by_w(self) -> "Point":
+        """
+        Undo the divide by w operation, making sure NOT to touch x, y, & z, which are already
+        modified to fit our viewport
+        """
+        position = self.position
+        self: Point = self / position.w
+        # Save our position data as-is
+        self.position = position
+        return self
+
+    def to_device_coordinates(self, width: int, height: int) -> "Point":
+        """Perform the translation to device coordinates"""
+        # Normalized device coordinates will be -1 to 1 in x, y, z.
+        # Perform a viewport transformation to move these normalized coordinates into device
+        # coordinates by adding 1, dividing by 2, and multiplying by height (y) or width (x)
+        self[0] = (self[0] + 1) * width / 2
+        self[1] = (self[1] + 1) * height / 2
+        return self
+
     @property
     def position(self) -> Position:
         return Position(*map(float, self[self.POSITION]))
