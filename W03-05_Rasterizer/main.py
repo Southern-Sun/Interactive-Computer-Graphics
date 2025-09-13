@@ -101,7 +101,7 @@ def process_file(command_file: str) -> Path:
 if __name__ == "__main__":  
     DEBUG = False
     if DEBUG:
-        command_file = "W03-05_Rasterizer/files/core/rast-checkers.txt"
+        command_file = "W03-05_Rasterizer/files/core/rast-gray.txt"
     else:  
         command_file = sys.argv[1]
 

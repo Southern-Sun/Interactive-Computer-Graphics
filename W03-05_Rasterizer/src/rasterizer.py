@@ -102,10 +102,14 @@ class Rasterizer:
         assert len(points) == 3
         # Put the points in device coordinates
         points = [
-            point.divide_by_w().to_device_coordinates(self.width, self.height) for point in points
+            point.divide_by_w(self.hyperbolic).to_device_coordinates(self.width, self.height)
+            for point in points
         ]
+
         for fragment in Rasterizer.scanline(*points):
-            fragment = fragment.undo_divide_by_w()
+            if self.hyperbolic:
+                fragment = fragment.undo_divide_by_w()
+
             position = fragment.integer_position
 
             # Some pixels may be off-screen
