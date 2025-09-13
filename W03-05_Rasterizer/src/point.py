@@ -7,7 +7,6 @@ Position = namedtuple("Position", "x y z w", defaults=(0, 0, 0, 1))
 Color = namedtuple("Color", "r g b a", defaults=(0, 0, 0, 1))
 TexCoord = namedtuple("TexCoord", "s t")
 PointSize = namedtuple("PointSize", "size")
-Element = namedtuple("Element", "index")
 
 
 class Point(np.ndarray):
@@ -111,6 +110,20 @@ class Point(np.ndarray):
     def rgba_color(self) -> Color:
         """Returns the color vector * 255 as ints for printing"""
         return Color(*map(int, self[self.COLOR] * 255))
+    
+    @property
+    def srgb_color(self) -> Color:
+        """Returns the color vector translated from linear to sRGB"""
+        colors = self[self.COLOR]
+        # Preserve the alpha channel since we do not translate it
+        alpha = colors[3]
+        colors = np.where(
+            colors <= 0.0031308,
+            colors * 12.92,
+            (colors ** (1/2.4)) * 1.055 - 0.055
+        )
+        colors[3] = alpha
+        return Color(*map(int, colors * 255))
 
     @property
     def texture_coord(self) -> TexCoord:
