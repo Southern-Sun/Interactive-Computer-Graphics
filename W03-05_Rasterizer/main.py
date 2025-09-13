@@ -43,7 +43,10 @@ with open(command_file, "r") as f:
         match args:
             # 7.1 Create Image
             case ["png", width, height, filename]:
-                rasterizer.image = Image.new("RGBA", (int(width), int(height)), (0, 0, 0, 0))
+                width, height = int(width), int(height)
+                rasterizer.image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+                rasterizer.width = width
+                rasterizer.height = height
 
             # 7.2 Modes
             case ["depth"]:
@@ -102,4 +105,4 @@ with open(command_file, "r") as f:
             case _:
                 pass
     
-# rasterizer.save()
+rasterizer.save()
