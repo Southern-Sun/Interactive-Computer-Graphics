@@ -53,8 +53,8 @@ def process_file(command_file: str) -> Path:
                     rasterizer.cull_backfaces = True
                 case ["decals"]:
                     rasterizer.decals = True
-                case ["frustrum"]:
-                    rasterizer.frustrum_clipping = True
+                case ["frustum"]:
+                    rasterizer.frustum_clipping = True
 
                 # 7.3 Uniform State
                 case ["texture", filename]:

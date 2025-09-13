@@ -10,6 +10,8 @@ from PIL import Image
 
 from .point import Point
 
+FRUSTUM = np.array([1,0,0,1,-1,0,0,1,0,1,0,1,0,-1,0,1,0,0,1,1,0,0,-1,1])
+FRUSTUM.resize((6, 4))
 
 @dataclass
 class Rasterizer:
@@ -26,7 +28,7 @@ class Rasterizer:
     fsaa: int = None
     cull_backfaces: bool = False
     decals: bool = False
-    frustrum_clipping: bool = False
+    frustum_clipping: bool = False
 
     # Uniform State
     texture: Image = None
@@ -97,6 +99,65 @@ class Rasterizer:
                 for point in Rasterizer.dda(a, b, dimension=0):
                     yield point
     
+    def clip_and_draw_triangle(self, points: list[Point]) -> None:
+        """First clips triangles (if enabled), then calls the draw method on each one"""
+        if not self.frustum_clipping:
+            return self.draw_triangle(points)
+        
+        triangles = [points]
+        for plane_index in range(6):
+            clipped_triangles = []
+            for triangle in triangles:
+                clipped_triangles.extend(self.clip_triangle(triangle, plane_index))
+
+            triangles = clipped_triangles
+
+        for triangle in triangles:
+            self.draw_triangle(triangle)
+
+    def clip_triangle(self, points: list[Point], plane_index: int) -> list[list[Point]]:
+        """Clips one triangle against one plane"""
+        plane = FRUSTUM[plane_index]
+        points = [(point, np.dot(plane, np.array(point.position))) for point in points]
+        bad_points = [(point, distance) for point, distance in points if distance < 0]
+        match len(bad_points):
+            case 0:
+                # Fully inside the plane, return as-is
+                return [points]
+            case 1:
+                # Make 2 new triangles
+                bad_point, bad_dist = bad_points[0]
+                new_points = []
+                for good_point, good_dist in points:
+                    if good_point is bad_point:
+                        continue
+                    new_points.append(good_point)
+
+                    # Now, find the linear combination of this point with the bad point
+                    new_points.append(
+                        (good_dist * good_point + bad_dist * bad_point) / (good_dist + bad_dist)
+                    )
+
+                assert len(new_points) == 4
+                # Arbitrarily split the points into two sets of 3 points - any combo works
+                return [new_points[0:3], new_points[1:4]]
+            case 2:
+                # Make 1 new triangle
+                good_point, good_dist = next(point for point in points if point not in bad_points)
+                new_points = [good_point]
+                for bad_point, bad_dist in bad_points:
+                    # After simplifying for double negatives, get the linear combination of points
+                    new_points.append(
+                        (good_dist * good_point + bad_dist * bad_point) / (good_dist + bad_dist)
+                    )
+                return [new_points]
+            case 3:
+                # Fully outside of the plane, return nothing
+                return []
+            case _:
+                raise ValueError("Illegal number of positions!")
+
+
     def draw_triangle(self, points: list[Point]) -> None:
         """Draws one triangle"""
         assert len(points) == 3
@@ -135,7 +196,7 @@ class Rasterizer:
         # Take advantage of the assertion count % 3 == 0 to instead iterate count / 3 times
         for i in range(first, first + count, 3):
             points = [point for point in self.points[i:i+3]]
-            self.draw_triangle(points)
+            self.clip_and_draw_triangle(points)
                 
     def draw_elements_triangles(self, count: int, offset: int) -> None:
         """
@@ -149,7 +210,7 @@ class Rasterizer:
         # This is nearly identical to draw_arrays_triangles except we access the elements buffer
         for i in range(offset, offset + count, 3):
             points = [self.points[element] for element in self.elements[i:i+3]]
-            self.draw_triangle(points)
+            self.clip_and_draw_triangle(points)
 
 
     def draw_arrays_points(self, first: int, count: int) -> None:
