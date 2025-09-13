@@ -15,7 +15,7 @@ from src.rasterizer import Rasterizer
 
 def repackage_args(args: list[str], group_length: int = 1) -> list[tuple[int]]:
     """Convert inputs to integers, then repackage them into groups"""
-    arg_generator = (float(arg.strip()) for arg in args)
+    arg_generator = (float(arg.strip()) for arg in args if not arg.strip() == "")
     output = []
     while True:
         # Consume the generator one group at a time
@@ -101,7 +101,7 @@ def process_file(command_file: str) -> Path:
 if __name__ == "__main__":  
     DEBUG = False
     if DEBUG:
-        command_file = "W03-05_Rasterizer/files/core/rast-gray.txt"
+        command_file = "W03-05_Rasterizer/files/frustrum/rast-frustum.txt"
     else:  
         command_file = sys.argv[1]
 

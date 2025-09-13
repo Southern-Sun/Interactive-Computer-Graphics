@@ -46,9 +46,10 @@ class Rasterizer:
     ):
         """
         Set the attributes of the given buffer.
-        Calling this method with a different buffer length will clear the buffer automatically
+        Calling this method with an input list longer than the existing buffer will re-instantiate
+        the buffer.
         """
-        if len(self.points) != len(values):
+        if len(self.points) < len(values):
             self.points = [Point() for _ in range(len(values))]
         
         for point, value in zip(self.points, values):
@@ -115,27 +116,26 @@ class Rasterizer:
         for triangle in triangles:
             self.draw_triangle(triangle)
 
-    def clip_triangle(self, points: list[Point], plane_index: int) -> list[list[Point]]:
+    def clip_triangle(self, triangle: list[Point], plane_index: int) -> list[list[Point]]:
         """Clips one triangle against one plane"""
         plane = FRUSTUM[plane_index]
-        points = [(point, np.dot(plane, np.array(point.position))) for point in points]
+        points = [(point, np.dot(plane, np.array(point.position))) for point in triangle]
         bad_points = [(point, distance) for point, distance in points if distance < 0]
+        good_points = [(point, distance) for point, distance in points if distance >= 0]
         match len(bad_points):
             case 0:
                 # Fully inside the plane, return as-is
-                return [points]
+                return [triangle]
             case 1:
                 # Make 2 new triangles
                 bad_point, bad_dist = bad_points[0]
                 new_points = []
-                for good_point, good_dist in points:
-                    if good_point is bad_point:
-                        continue
+                for good_point, good_dist in good_points:
                     new_points.append(good_point)
 
                     # Now, find the linear combination of this point with the bad point
                     new_points.append(
-                        (good_dist * good_point + bad_dist * bad_point) / (good_dist + bad_dist)
+                        (good_dist * bad_point - bad_dist * good_point) / (good_dist - bad_dist)
                     )
 
                 assert len(new_points) == 4
@@ -143,12 +143,12 @@ class Rasterizer:
                 return [new_points[0:3], new_points[1:4]]
             case 2:
                 # Make 1 new triangle
-                good_point, good_dist = next(point for point in points if point not in bad_points)
+                good_point, good_dist = good_points[0]
                 new_points = [good_point]
                 for bad_point, bad_dist in bad_points:
-                    # After simplifying for double negatives, get the linear combination of points
+                    # Now, find the linear combination of this point with the good point
                     new_points.append(
-                        (good_dist * good_point + bad_dist * bad_point) / (good_dist + bad_dist)
+                        (good_dist * bad_point - bad_dist * good_point) / (good_dist - bad_dist)
                     )
                 return [new_points]
             case 3:
@@ -227,6 +227,9 @@ class Rasterizer:
 
     def render(self) -> None:
         """Render the frame buffer and save the image to disk"""
+        # import json
+        # clean_frame = {}
+
         for (x, y), fragments in self.frame.items():
             # If we should consider depth, draw back to front
             if self.depth:
@@ -241,6 +244,11 @@ class Rasterizer:
                     color = fragment.rgba_color
 
                 self.image.putpixel((x, y), color)
+
+        #     clean_frame[str((x, y))] = [str(fragment) for fragment in fragments]
+
+        # with open(Path(self.filename).with_suffix(".json"), "w") as f:
+        #     json.dump(clean_frame, f, indent=4)
 
         save_path = Path.cwd() / self.filename
         self.image.save(save_path)
