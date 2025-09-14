@@ -161,6 +161,14 @@ class Rasterizer:
     def draw_triangle(self, points: list[Point]) -> None:
         """Draws one triangle"""
         assert len(points) == 3
+
+        if self.cull_backfaces:
+            # Calculate the surface normal
+            normal = np.cross(points[1][:3] - points[0][:3], points[2][:3] - points[1][:3])
+            if np.dot(normal, np.array((0, 0, 1))) >= 0:
+                # This is a backface, don't render it
+                return
+
         # Put the points in device coordinates
         points = [
             point.divide_by_w(self.hyperbolic).to_device_coordinates(self.width, self.height)
