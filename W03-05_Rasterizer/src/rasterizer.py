@@ -268,7 +268,7 @@ class Rasterizer:
 
         for y in range(self.height):
             for x in range(self.width):
-                pixels = []
+                pixels: list[Point] = []
                 for super_y in range(y * self.fsaa, (y+1) * self.fsaa):
                     for super_x in range(x * self.fsaa, (x+1) * self.fsaa):
                         fragments = self.frame_buffer[super_y][super_x]
@@ -285,8 +285,26 @@ class Rasterizer:
                     continue
 
                 if self.fsaa > 1:
-                    # Average the pixels if there are any:
-                    pixel = sum(pixels) / (self.fsaa ** 2)
+                    # Average the pixel values using pre-multiplied alpha so we don't affect color
+                    premultiplied_sum = np.array((0, 0, 0), dtype=np.float64)
+                    alpha_sum = 0
+                    for point in pixels:
+                        color = point.color
+                        rgb = np.array((color.r, color.g, color.b))
+                        rgb = rgb * color.a
+                        premultiplied_sum += rgb
+                        alpha_sum += color.a
+
+                    alpha = alpha_sum / (self.fsaa ** 2)
+                    rgb = premultiplied_sum / (self.fsaa ** 2)
+                    if alpha == 0:
+                        rgb = np.zeros(3)
+                    else:
+                        rgb = rgb / alpha
+
+                    pixel = Point()
+                    pixel.color = tuple(rgb) + (alpha,)
+
                 else:
                     pixel = pixels[0]
 
