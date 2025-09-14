@@ -149,4 +149,3 @@ class Point(np.ndarray):
     @point_size.setter
     def point_size(self, value: PointSize) -> None:
         self[self.POINT_SIZE] = value
-

@@ -25,7 +25,7 @@ class Rasterizer:
     depth: bool = False
     srgb: bool = False
     hyperbolic: bool = False
-    fsaa: int = None
+    fsaa: int = 1
     cull_backfaces: bool = False
     decals: bool = False
     frustum_clipping: bool = False
@@ -38,6 +38,17 @@ class Rasterizer:
     points: list[Point] = field(default_factory=list)
     elements: list[int] = field(default_factory=list)
     frame: dict[tuple[int, int], list[Point]] = field(default_factory=partial(defaultdict, list))
+    _frame_buffer: list[list[list[Point]]] = None
+
+    @property
+    def frame_buffer(self) -> list[list[list[Point]]]:
+        """Returns a 2D array of lists of fragments. Lazy initializes the frame buffer."""
+        if self._frame_buffer is None:
+            self._frame_buffer = [
+                [[] for _ in range(self.width * self.fsaa)]
+                for _ in range(self.height * self.fsaa)
+            ]
+        return self._frame_buffer
 
     def set_buffer(
         self, 
@@ -170,8 +181,11 @@ class Rasterizer:
                 return
 
         # Put the points in device coordinates
+        width = self.width * self.fsaa
+        height = self.height * self.fsaa
+        
         points = [
-            point.divide_by_w(self.hyperbolic).to_device_coordinates(self.width, self.height)
+            point.divide_by_w(self.hyperbolic).to_device_coordinates(width, height)
             for point in points
         ]
 
@@ -182,13 +196,13 @@ class Rasterizer:
             position = fragment.integer_position
 
             # Some pixels may be off-screen
-            on_screen = (0 <= position.x < self.width) & (0 <= position.y < self.height)
+            on_screen = (0 <= position.x < width) & (0 <= position.y < height)
             if not on_screen:
                 continue
 
             # Append fragments to the frame buffer as we draw them
-            self.frame[(position.x, position.y)].append(fragment)
-            # self.image.putpixel((position.x, position.y), fragment.rgba_color)
+            # self.frame[(position.x, position.y)].append(fragment)
+            self.frame_buffer[position.y][position.x].append(fragment)
 
     def draw_arrays_triangles(self, first: int, count: int, line) -> None:
         """
@@ -235,29 +249,53 @@ class Rasterizer:
 
     def render(self) -> None:
         """Render the frame buffer and save the image to disk"""
-        # import json
-        # clean_frame = {}
+        # new_frame_buffer = [[None] * self.width * self.fsaa for _ in range(self.height * self.fsaa)]
+        # for (x, y), fragments in self.frame.items():
+        #     # If we should consider depth, draw back to front
+        #     if self.depth:
+        #         fragments = sorted(fragments, key=lambda p: p.position.z, reverse=True)
 
-        for (x, y), fragments in self.frame.items():
-            # If we should consider depth, draw back to front
-            if self.depth:
-                fragments = sorted(fragments, key=lambda p: p.position.z, reverse=True)
+        #     for fragment in fragments:
+        #         # TODO: Instead of overwriting, combine so we respect the alpha channel
+        #         # But probably only if we are in the self.depth branch
+        #         if self.srgb:
+        #             color = fragment.srgb_color
+        #         else:
+        #             color = fragment.rgba_color
 
-            for fragment in fragments:
-                # TODO: Instead of overwriting, combine so we respect the alpha channel
-                # But probably only if we are in the self.depth branch
-                if self.srgb:
-                    color = fragment.srgb_color
+        #         # self.image.putpixel((x, y), color)
+        #         new_frame_buffer[y][x] = color
+
+        for y in range(self.height):
+            for x in range(self.width):
+                pixels = []
+                for super_y in range(y * self.fsaa, (y+1) * self.fsaa):
+                    for super_x in range(x * self.fsaa, (x+1) * self.fsaa):
+                        fragments = self.frame_buffer[super_y][super_x]
+                        if not fragments:
+                            continue
+
+                        # If we should consider depth, draw back to front
+                        if self.depth:
+                            fragments = sorted(fragments, key=lambda p: p.position.z, reverse=True)
+                            
+                        pixels.append(fragments[-1])
+                
+                if not pixels:
+                    continue
+
+                if self.fsaa > 1:
+                    # Average the pixels if there are any:
+                    pixel = sum(pixels) / (self.fsaa ** 2)
                 else:
-                    color = fragment.rgba_color
+                    pixel = pixels[0]
 
+                if self.srgb:
+                    color = pixel.srgb_color
+                else:
+                    color = pixel.rgba_color
                 self.image.putpixel((x, y), color)
-
-        #     clean_frame[str((x, y))] = [str(fragment) for fragment in fragments]
-
-        # with open(Path(self.filename).with_suffix(".json"), "w") as f:
-        #     json.dump(clean_frame, f, indent=4)
-
+      
         save_path = Path.cwd() / self.filename
         self.image.save(save_path)
         return save_path
