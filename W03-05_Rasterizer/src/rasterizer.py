@@ -29,6 +29,7 @@ class Rasterizer:
     cull_backfaces: bool = False
     decals: bool = False
     frustum_clipping: bool = False
+    alpha: bool = False
 
     # Uniform State
     texture: Image = None
@@ -113,6 +114,11 @@ class Rasterizer:
     
     def clip_and_draw_triangle(self, points: list[Point]) -> None:
         """First clips triangles (if enabled), then calls the draw method on each one"""
+        if self.uniform_matrix is not None:
+            for point in points:
+                position = point[point.POSITION]
+                point.position = np.dot(self.uniform_matrix.T, position)
+
         if not self.frustum_clipping:
             return self.draw_triangle(points)
         
@@ -247,25 +253,32 @@ class Rasterizer:
             in WebGL2
         """
 
+    @staticmethod
+    def blend_alpha(
+        source: np.ndarray,
+        destination: np.ndarray
+    ) -> np.ndarray:
+        """
+        Composite a front-to-back list/iterable of non-premultiplied linear RGBA colors.
+
+        Each element in `layer_colors` must be an array-like of length 4:
+        [red, green, blue, alpha], with components in [0, 1] (linear space, not sRGB).
+
+        Returns:
+            A single non-premultiplied linear RGBA np.ndarray of shape (4,).
+        """
+        source_alpha, destination_alpha = source[3], destination[3]
+        new_alpha = source_alpha + destination_alpha - (destination_alpha * source_alpha)
+        premultiplied_rgb = source_alpha * source + (1 - source_alpha) * destination_alpha * destination
+        if new_alpha > 0.0:
+            new_rgb = premultiplied_rgb / new_alpha
+            new_rgb[3] = new_alpha
+            return new_rgb
+        else: 
+            return np.zeros(4)
+
     def render(self) -> None:
         """Render the frame buffer and save the image to disk"""
-        # new_frame_buffer = [[None] * self.width * self.fsaa for _ in range(self.height * self.fsaa)]
-        # for (x, y), fragments in self.frame.items():
-        #     # If we should consider depth, draw back to front
-        #     if self.depth:
-        #         fragments = sorted(fragments, key=lambda p: p.position.z, reverse=True)
-
-        #     for fragment in fragments:
-        #         # TODO: Instead of overwriting, combine so we respect the alpha channel
-        #         # But probably only if we are in the self.depth branch
-        #         if self.srgb:
-        #             color = fragment.srgb_color
-        #         else:
-        #             color = fragment.rgba_color
-
-        #         # self.image.putpixel((x, y), color)
-        #         new_frame_buffer[y][x] = color
-
         for y in range(self.height):
             for x in range(self.width):
                 pixels: list[Point] = []
@@ -276,10 +289,31 @@ class Rasterizer:
                             continue
 
                         # If we should consider depth, draw back to front
-                        if self.depth:
+                        if self.depth and not self.alpha:
                             fragments = sorted(fragments, key=lambda p: p.position.z, reverse=True)
-                            
-                        pixels.append(fragments[-1])
+                            pixels.append(fragments[-1])
+                            continue
+                        elif not self.alpha:
+                            pixels.append(fragments[-1])
+                            continue
+
+                        # Perform alpha compositing
+                        # fragments = sorted(fragments, key=lambda p: p.position.z)
+                        fragments = fragments[::-1]
+                        fragment_colors = [
+                            np.array(fragment.color, dtype=np.float64) for fragment in fragments
+                            if fragment.color.a > 0
+                        ]
+                        destination_color = np.zeros(4)
+                        while fragment_colors:
+                            destination_color = Rasterizer.blend_alpha(
+                                source=fragment_colors.pop(),
+                                destination=destination_color
+                            )
+
+                        pixel = Point()
+                        pixel.color = destination_color
+                        pixels.append(pixel)
                 
                 if not pixels:
                     continue

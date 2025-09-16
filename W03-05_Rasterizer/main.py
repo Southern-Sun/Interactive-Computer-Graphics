@@ -61,10 +61,10 @@ def process_file(command_file: str) -> Path:
                     rasterizer.texture = Image.open(filename)
                 case ["uniformMatrix", *elements]:
                     # Package the matrix into an ndarray
-                    elements = [int(element) for element in elements]
+                    elements = [float(element) for element in elements]
                     shape = int(math.sqrt(len(elements)))
                     array = np.array(elements)
-                    array.resize((shape, shape))
+                    array = array.reshape((shape, shape), order="F")
                     rasterizer.uniform_matrix = array
 
                 # 7.4 Buffers
@@ -75,6 +75,8 @@ def process_file(command_file: str) -> Path:
                 case ["color", size, *colors]:
                     colors = repackage_args(colors, group_length=int(size))
                     rasterizer.set_buffer("color", [Color(*color) for color in colors])
+                    if size == "4":
+                        rasterizer.alpha = True
                 case ["texcoord", size, *coords]:
                     coords = repackage_args(coords, group_length=int(size))
                     rasterizer.set_buffer("texture_coord", [TexCoord(*coord) for coord in coords])
