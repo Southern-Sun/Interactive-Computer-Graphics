@@ -8,7 +8,7 @@ from typing import Generator, Literal
 import numpy as np
 from PIL import Image
 
-from .point import Point
+from .point import Color, Point
 
 FRUSTUM = np.array([1,0,0,1,-1,0,0,1,0,1,0,1,0,-1,0,1,0,0,1,1,0,0,-1,1])
 FRUSTUM.resize((6, 4))
@@ -32,7 +32,7 @@ class Rasterizer:
     alpha: bool = False
 
     # Uniform State
-    texture: Image = None
+    texture: Image.Image = None
     uniform_matrix: np.ndarray = None
 
     # Buffers
@@ -114,10 +114,12 @@ class Rasterizer:
     
     def clip_and_draw_triangle(self, points: list[Point]) -> None:
         """First clips triangles (if enabled), then calls the draw method on each one"""
+        points = [point.copy() for point in points]
         if self.uniform_matrix is not None:
             for point in points:
                 position = point[point.POSITION]
-                point.position = np.dot(self.uniform_matrix.T, position)
+                new_position = np.dot(self.uniform_matrix, position)
+                point.position = new_position
 
         if not self.frustum_clipping:
             return self.draw_triangle(points)
@@ -205,6 +207,19 @@ class Rasterizer:
             on_screen = (0 <= position.x < width) & (0 <= position.y < height)
             if not on_screen:
                 continue
+
+            # If we have a texture, set the fragment's color equal to the texture value's
+            if self.texture is not None:
+                coords = fragment.texture_coord
+                # wrap the coordinates
+                s, t = coords.s % 1, coords.t % 1
+                x = self.texture.width * s
+                y = self.texture.height * t
+                color = Color(*[c/255 for c in self.texture.getpixel((x, y))])
+                # Translate from sRGB to linear space
+                
+
+                fragment.color = color
 
             # Append fragments to the frame buffer as we draw them
             # self.frame[(position.x, position.y)].append(fragment)
@@ -298,7 +313,6 @@ class Rasterizer:
                             continue
 
                         # Perform alpha compositing
-                        # fragments = sorted(fragments, key=lambda p: p.position.z)
                         fragments = fragments[::-1]
                         fragment_colors = [
                             np.array(fragment.color, dtype=np.float64) for fragment in fragments
