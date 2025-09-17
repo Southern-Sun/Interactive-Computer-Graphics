@@ -276,11 +276,26 @@ class Rasterizer:
             (1,1)(1,1) in its bottom-right corner; this is similar to the built-in gl_PointCoord 
             in WebGL2
         """
+        layout = (
+            ((-1, -1), (0.0, 0.0)), # Top left
+            ((1, -1), (1.0, 0.0)), # Top right
+            ((-1, 1), (0.0, 1.0)), # Bottom left
+            ((1, 1), (1.0, 1.0)), # Bottom right
+        )
+        display = [self.width, self.height]
         for i in range(first, first + count):
             point = self.points[i]
             size = point.point_size.size
-            top_left, top_right, bottom_left, bottom_right = point.copy(), point.copy(), point.copy(), point.copy()
-            
+            points = []
+            for offset, texture_coord in layout:
+                p = point.copy()
+                p.texture_coord = texture_coord
+                for dimension in (0, 1):
+                    p[dimension] = p[dimension] + size / offset[dimension] / display[dimension]
+                points.append(p)
+
+            self.clip_and_draw_triangle(points[0:3])
+            self.clip_and_draw_triangle(points[1:4])
 
     @staticmethod
     def blend_alpha(
