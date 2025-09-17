@@ -29,7 +29,7 @@ class Rasterizer:
     cull_backfaces: bool = False
     decals: bool = False
     frustum_clipping: bool = False
-    alpha: bool = False
+    alpha: bool = True
 
     # Uniform State
     texture: Image.Image = None
@@ -207,9 +207,11 @@ class Rasterizer:
             on_screen = (0 <= position.x < width) & (0 <= position.y < height)
             if not on_screen:
                 continue
+            self.frame_buffer[position.y][position.x].append(fragment)
 
-            # If we have a texture, set the fragment's color equal to the texture value's
+            # If we have a texture, add an extra fragment with color equal to the texture at s,t
             if self.texture is not None:
+                fragment = fragment.copy()
                 coords = fragment.texture_coord
                 # wrap the coordinates
                 s, t = coords.s % 1, coords.t % 1
@@ -217,13 +219,20 @@ class Rasterizer:
                 y = self.texture.height * t
                 color = Color(*[c/255 for c in self.texture.getpixel((x, y))])
                 # Translate from sRGB to linear space
-                
+                alpha = color.a
+                rgb = np.array(color, dtype=np.float64)
+                rgb = np.where(
+                    rgb <= .04045,
+                    rgb / 12.92,
+                    ((rgb + .055) / 1.055) ** 2.4,
+                )
+                rgb[3] = alpha
 
-                fragment.color = color
+                fragment.color = rgb
 
-            # Append fragments to the frame buffer as we draw them
-            # self.frame[(position.x, position.y)].append(fragment)
-            self.frame_buffer[position.y][position.x].append(fragment)
+                # Append fragments to the frame buffer as we draw them
+                # self.frame[(position.x, position.y)].append(fragment)
+                self.frame_buffer[position.y][position.x].append(fragment)
 
     def draw_arrays_triangles(self, first: int, count: int, line) -> None:
         """
@@ -267,6 +276,11 @@ class Rasterizer:
             (1,1)(1,1) in its bottom-right corner; this is similar to the built-in gl_PointCoord 
             in WebGL2
         """
+        for i in range(first, first + count):
+            point = self.points[i]
+            size = point.point_size.size
+            top_left, top_right, bottom_left, bottom_right = point.copy(), point.copy(), point.copy(), point.copy()
+            
 
     @staticmethod
     def blend_alpha(
@@ -304,13 +318,12 @@ class Rasterizer:
                             continue
 
                         # If we should consider depth, draw back to front
-                        if self.depth and not self.alpha:
+                        if self.depth:
                             fragments = sorted(fragments, key=lambda p: p.position.z, reverse=True)
-                            pixels.append(fragments[-1])
-                            continue
-                        elif not self.alpha:
-                            pixels.append(fragments[-1])
-                            continue
+                        
+                        # if not self.alpha:
+                        #     pixels.append(fragments[-1])
+                        #     continue
 
                         # Perform alpha compositing
                         fragments = fragments[::-1]
