@@ -18,11 +18,14 @@ def q3_2(a, b):
     dist_a, dist_b = np.dot(FRUSTUM, a), np.dot(FRUSTUM, b)
     dim_a = [c for c, i in enumerate(dist_a) if i < 0]
     dim_b = [c for c, i in enumerate(dist_b) if i < 0]
-    if dim_b:
-        a, b = b, a
+    # if dim_b:
+    #     a, b = b, a
+    #     dist_a, dist_b = dist_b, dist_a
     dim = (dim_a or dim_b)[0]
-    p = (dist_b[dim] * a - dist_a[dim] * b) / (dist_b[dim] - dist_a[dim])
-    t = (a[2] - p[2]) / (a[2] + b[2])
+    # p = (dist_b[dim] * a - dist_a[dim] * b) / (dist_b[dim] - dist_a[dim])
+    # t = (a[2] - p[2]) / (a[2] + b[2])
+    # t2 = (dist_a) / (dist_b - dist_a)
+    t = (dist_a[dim]) / (dist_b[dim] - dist_a[dim])
     return dim, t
 
 def q3_3(source, dest):
