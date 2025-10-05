@@ -10,6 +10,7 @@ void main() {
     float x = float(position.x);
     float y = float(position.y);
 
+    // use polar harmonics to make pretty waves
     float radius = length(position);
     float angle = atan(position.y, position.x);
 
