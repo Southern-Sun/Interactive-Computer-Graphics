@@ -1,14 +1,14 @@
 #version 300 es
 
-layout(location=0) in vec4 position;
-layout(location=1) in vec4 color;
-
-uniform mat4 rigid_matrix;
-uniform mat4 rotation_matrix;
-
-out vec4 vColor;
+out vec4 position;
 
 void main() {
-    vColor = color;
-    gl_Position = rigid_matrix * rotation_matrix * position;
+    int x = int((
+        (gl_VertexID + 1) % 6
+    ) / 3) * 2 - 1;
+
+    int y = (gl_VertexID % 2) * 2 - 1;
+
+    gl_Position = vec4(x, y, 0, 1);
+    position = gl_Position;
 }
