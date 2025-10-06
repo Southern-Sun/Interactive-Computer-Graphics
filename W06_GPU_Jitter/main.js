@@ -67,32 +67,33 @@ function draw(milliseconds) {
     gl.clear(gl.COLOR_BUFFER_BIT) 
     gl.useProgram(program)
 
-    const base_scalar = .10
-    const translation_scale = .5
-    const rotation_speed = 2
+    // const base_scalar = .10
+    // const translation_scale = .5
+    // const rotation_speed = 2
 
-    var seconds = milliseconds / 500
-    var scalar = base_scalar * .5 + Math.cos(seconds) / 10
-    var rotation = seconds * rotation_speed
-    // animate the logo moving in a circle by setting x/y offsets equal to cos/sin, respectively
-    // these matrices are column-major
-    var rigid_matrix = new Float32Array([
-        [scalar, 0, 0, 0],
-        [0, scalar, 0, 0],
-        [0, 0, scalar, 0],
-        [Math.cos(seconds) * translation_scale, Math.sin(seconds) * translation_scale, 0, 1]
-    ].flat())
+    // var seconds = milliseconds / 500
+    // var scalar = base_scalar * .5 + Math.cos(seconds) / 10
+    // var rotation = seconds * rotation_speed
+    // // animate the logo moving in a circle by setting x/y offsets equal to cos/sin, respectively
+    // // these matrices are column-major
+    // var rigid_matrix = new Float32Array([
+    //     [scalar, 0, 0, 0],
+    //     [0, scalar, 0, 0],
+    //     [0, 0, scalar, 0],
+    //     [Math.cos(seconds) * translation_scale, Math.sin(seconds) * translation_scale, 0, 1]
+    // ].flat())
 
-    var rotation_matrix = new Float32Array([
-        [Math.cos(rotation), Math.sin(rotation), 0, 0],
-        [-Math.sin(rotation), Math.cos(rotation), 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    ].flat())
+    // var rotation_matrix = new Float32Array([
+    //     [Math.cos(rotation), Math.sin(rotation), 0, 0],
+    //     [-Math.sin(rotation), Math.cos(rotation), 0, 0],
+    //     [0, 0, 1, 0],
+    //     [0, 0, 0, 1]
+    // ].flat())
     
-    // values that do not vary between vertexes or fragments are called "uniforms"
-    gl.uniformMatrix4fv(program.uniforms.rigid_matrix, false, rigid_matrix)
-    gl.uniformMatrix4fv(program.uniforms.rotation_matrix, false, rotation_matrix)
+    // // values that do not vary between vertexes or fragments are called "uniforms"
+    // gl.uniformMatrix4fv(program.uniforms.rigid_matrix, false, rigid_matrix)
+    // gl.uniformMatrix4fv(program.uniforms.rotation_matrix, false, rotation_matrix)
+    gl.uniform1f(program.uniforms.seconds, milliseconds/200)
     
     gl.bindVertexArray(geom.vao)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
