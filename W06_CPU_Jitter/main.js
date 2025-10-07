@@ -44,10 +44,13 @@ function setupGeomery(geom) {
     for(let i=0; i<geom.attributes.length; i+=1) {
         let buf = gl.createBuffer()
         gl.bindBuffer(gl.ARRAY_BUFFER, buf)
-        attributes = geom.attributes[i].flat()
-        let f32 = new Float32Array(attributes)
-        if (i == 0) {
-            vertices = attributes
+        
+        const attributes = geom.attributes[i].flat()
+        const f32 = new Float32Array(attributes)
+        if (i === 0) {
+            vertices = new Float32Array(attributes)
+            geom._positionComponents = geom.attributes[i][0].length
+            geom._positionBuffer = buf
         }
 
         gl.bufferData(gl.ARRAY_BUFFER, f32, gl.STATIC_DRAW)
@@ -66,7 +69,9 @@ function setupGeomery(geom) {
         count: indices.length,
         type: gl.UNSIGNED_SHORT,
         vao: triangleArray,
-        vertices: vertices
+        vertices: vertices,
+        positionBuffer: geom._positionBuffer,
+        positionComponents: geom._positionComponents
     }
 }
 
@@ -79,7 +84,7 @@ function draw(milliseconds) {
     const rotation_speed = 2
 
     // var seconds = milliseconds / 500
-    // setting seconds to zero removes all movement from the matrices
+    // IMPORTANT: setting seconds to zero removes all movement from the matrices
     var seconds = 0
     var scalar = base_scalar * .5 + Math.cos(seconds) / 10
     var rotation = seconds * rotation_speed
@@ -99,19 +104,20 @@ function draw(milliseconds) {
         [0, 0, 0, 1]
     ].flat())
 
-    const jitter_magnitude = 10.0
-    
-    geom.vertices = geom.vertices.forEach(element => {
-        element + Math.random() / jitter_magnitude
-    })
-    new_vertices = new Float32Array(geom.vertices)
-    gl.bufferData(gl.ARRAY_BUFFER, new_vertices, gl.STATIC_DRAW)
+    gl.bindVertexArray(geom.vao)
+    const jitter_magnitude = 0.01
+    const v = geom.vertices
+    for (let i = 0; i < v.length; i += 1) {
+        v[i] += (Math.random() * 2 - 1) * jitter_magnitude
+    }
+    // update the GPU buffer that backs attribute 0 (positions)
+    gl.bindBuffer(gl.ARRAY_BUFFER, geom.positionBuffer)
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, v)
     
     // values that do not vary between vertexes or fragments are called "uniforms"
     gl.uniformMatrix4fv(program.uniforms.rigid_matrix, false, rigid_matrix)
     gl.uniformMatrix4fv(program.uniforms.rotation_matrix, false, rotation_matrix)
     
-    gl.bindVertexArray(geom.vao)
     gl.drawElements(geom.mode, geom.count, geom.type, 0)
 }
 
