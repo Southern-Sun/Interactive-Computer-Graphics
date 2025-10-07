@@ -40,10 +40,16 @@ function setupGeomery(geom) {
     var triangleArray = gl.createVertexArray()
     gl.bindVertexArray(triangleArray)
 
+    var vertices;
     for(let i=0; i<geom.attributes.length; i+=1) {
         let buf = gl.createBuffer()
         gl.bindBuffer(gl.ARRAY_BUFFER, buf)
-        let f32 = new Float32Array(geom.attributes[i].flat())
+        attributes = geom.attributes[i].flat()
+        let f32 = new Float32Array(attributes)
+        if (i == 0) {
+            vertices = attributes
+        }
+
         gl.bufferData(gl.ARRAY_BUFFER, f32, gl.STATIC_DRAW)
         
         gl.vertexAttribPointer(i, geom.attributes[i][0].length, gl.FLOAT, false, 0, 0)
@@ -59,7 +65,8 @@ function setupGeomery(geom) {
         mode: gl.TRIANGLES,
         count: indices.length,
         type: gl.UNSIGNED_SHORT,
-        vao: triangleArray
+        vao: triangleArray,
+        vertices: vertices
     }
 }
 
@@ -71,7 +78,9 @@ function draw(milliseconds) {
     const translation_scale = .5
     const rotation_speed = 2
 
-    var seconds = milliseconds / 500
+    // var seconds = milliseconds / 500
+    // setting seconds to zero removes all movement from the matrices
+    var seconds = 0
     var scalar = base_scalar * .5 + Math.cos(seconds) / 10
     var rotation = seconds * rotation_speed
     // animate the logo moving in a circle by setting x/y offsets equal to cos/sin, respectively
@@ -89,6 +98,14 @@ function draw(milliseconds) {
         [0, 0, 1, 0],
         [0, 0, 0, 1]
     ].flat())
+
+    const jitter_magnitude = 10.0
+    
+    geom.vertices = geom.vertices.forEach(element => {
+        element + Math.random() / jitter_magnitude
+    })
+    new_vertices = new Float32Array(geom.vertices)
+    gl.bufferData(gl.ARRAY_BUFFER, new_vertices, gl.STATIC_DRAW)
     
     // values that do not vary between vertexes or fragments are called "uniforms"
     gl.uniformMatrix4fv(program.uniforms.rigid_matrix, false, rigid_matrix)
