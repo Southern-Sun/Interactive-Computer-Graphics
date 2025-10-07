@@ -86,16 +86,16 @@ function supplyDataBuffer(data, loc, mode) {
  *  - type = the 3rd argument for gl.drawElements
  *  - vao = the vertex array object for use with gl.bindVertexArray
  */
-function setupGeomery(geom) {
+function setup_geometry(geometry) {
     var triangleArray = gl.createVertexArray()
     gl.bindVertexArray(triangleArray)
 
-    for(let i=0; i<geom.attributes.length; i+=1) {
-        let data = geom.attributes[i]
+    for(let i=0; i<geometry.attributes.length; i+=1) {
+        let data = geometry.attributes[i]
         supplyDataBuffer(data, i)
     }
 
-    var indices = new Uint16Array(geom.triangles.flat())
+    var indices = new Uint16Array(geometry.triangles.flat())
     var indexBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
@@ -145,7 +145,7 @@ function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
 
-    gl.bindVertexArray(geom.vao)
+    gl.bindVertexArray(tetrahedron.vao)
 
     gl.uniform4fv(program.uniforms.color, IlliniOrange)
     let m = m4rotX(seconds)
@@ -153,7 +153,7 @@ function draw(seconds) {
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m))
     gl.uniformMatrix4fv(program.uniforms.p, false, p)
     
-    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
 
     let wrapped = seconds % 4
     let stage = Math.floor(wrapped)
@@ -170,19 +170,19 @@ function draw(seconds) {
 
     let m2 = m4mul(tr, m4scale(0.5, 0.5, 0.5))
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m2))
-    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
 
     let m3 = m4mul(m, m4trans(0,1,0), m4scale(0.5, 0.5, 0.5), m4rotZ(seconds))
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m3))
-    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
 
     let m4 = m4mul(m3, m4trans(1,0,0), m4scale(0.5, 0.5, 0.5))
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m4))
-    gl.drawElements(geom.mode, geom.count, geom.type, 0)
+    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
 
-    gl.bindVertexArray(geom2.vao)
+    gl.bindVertexArray(octahedron.vao)
     gl.uniformMatrix4fv(program.uniforms.mv, false, v)
-    gl.drawElements(geom2.mode, geom2.count, geom2.type, 0)
+    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0)
 }
 
 /** Compute any time-varying or animated aspects of the scene */
@@ -220,9 +220,9 @@ window.addEventListener('load', async (event) => {
     window.program = compileShader(vs,fs)
     gl.enable(gl.DEPTH_TEST)
 
-    let tetrahedron = await fetch('assets/geometry.json').then(r=>r.json())
-    window.geom = setupGeomery(tetrahedron)
-    window.geom2 = setupGeomery(makeGeom())
+    let data = await fetch('assets/geometry.json').then(r=>r.json())
+    window.tetrahedron = setup_geometry(data.tetrahedron)
+    window.octahedron = setup_geometry(data.octahedron)
     
     fillScreen()
     window.addEventListener('resize', fillScreen)
