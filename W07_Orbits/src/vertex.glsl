@@ -4,10 +4,10 @@ layout(location=1) in vec4 color;
 
 out vec4 vColor;
 
-uniform mat4 mv;
-uniform mat4 p;
+uniform mat4 model_view;
+uniform mat4 perspective;
 
 void main() {
-    gl_Position = p * mv * position;
+    gl_Position = perspective * model_view * position;
     vColor = color;
 }
