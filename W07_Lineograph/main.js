@@ -155,45 +155,6 @@ function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
 
-    // gl.bindVertexArray(tetrahedron.vao)
-
-    // gl.uniform4fv(program.uniforms.color, IlliniOrange)
-    // let m = m4rotX(seconds)
-    // let v = m4view([Math.cos(seconds/2),2,3], [0,0,0], [0,1,0])
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m))
-    // gl.uniformMatrix4fv(program.uniforms.p, false, p)
-    
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // let wrapped = seconds % 4
-    // let stage = Math.floor(wrapped)
-    // let t = wrapped - stage
-    // if (stage == 0) {
-    //     tr = m4trans(1,0,1*(1-t) + -1*(t))
-    // } else if (stage == 1) { 
-    //     tr = m4trans(...lerp(t, [1,0,-1], [-1,0,-1]))
-    // } else if (stage == 2) { 
-    //     tr = m4trans(...lerp(t, [-1,0,-1], [-1,0,1]))
-    // } else { // stage == 3
-    //     tr = m4trans(...lerp(t, [-1,0,1], [1,0,1]))
-    // }
-
-    // let m2 = m4mul(tr, m4scale(0.5, 0.5, 0.5))
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m2))
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // let m3 = m4mul(m, m4trans(0,1,0), m4scale(0.5, 0.5, 0.5), m4rotZ(seconds))
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m3))
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // let m4 = m4mul(m3, m4trans(1,0,0), m4scale(0.5, 0.5, 0.5))
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m4))
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // gl.bindVertexArray(octahedron.vao)
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, v)
-    // gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0)
-
     // Slow down the animation here
     seconds = seconds / 1
 
