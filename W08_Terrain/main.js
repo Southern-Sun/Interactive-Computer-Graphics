@@ -130,25 +130,32 @@ function draw(seconds) {
     // Default brown color
     gl.uniform4fv(program.uniforms.color, [.7, .4, .2, 1])
 
+    // Slow down the animation here
+    seconds = seconds / 2
+
+    // Setup our parameters -- Spins & Orbits are periods in seconds
+    const TERRAIN_SPIN = 10
+    const CAMERA_RADIUS = 3.0
+    const CAMERA_ORBIT = period(10.0) * seconds
+    const EYE = [
+        CAMERA_RADIUS * Math.cos(CAMERA_ORBIT),
+        CAMERA_RADIUS * Math.sin(CAMERA_ORBIT),
+        1.5
+    ]
+
     var light_direction = [1, 1, 1]
-    var halfway_vector = normalize(add(light_direction, [0, 0, 1]))
+    var halfway_vector = normalize(add(light_direction, EYE))
     gl.uniform3fv(program.uniforms.light_direction, normalize(light_direction))
     gl.uniform3fv(program.uniforms.light_color, [1, 1, 1])
     gl.uniform3fv(program.uniforms.halfway, halfway_vector)
 
-    // Slow down the animation here
-    seconds = seconds / 1
-
-    // Setup our parameters -- Spins & Orbits are periods in seconds
-    const TERRAIN_SPIN = 10
-
     // Set our perspective matrix
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective_matrix)
-    var view_matrix = m4view([1, 1, 2], [0, 0, 0], [0, 0, 1])
+    var view_matrix = m4view(EYE, [0, 0, 0], [0, 0, 1])
 
     gl.bindVertexArray(terrain.vao)
 
-    terrain_model = m4rotZ(period(TERRAIN_SPIN) * seconds)
+    terrain_model = m4rotZ(period(TERRAIN_SPIN))
     gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, terrain_model))
     gl.drawElements(terrain.mode, terrain.count, terrain.type, 0)
 }
