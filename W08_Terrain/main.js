@@ -135,7 +135,7 @@ function draw(seconds) {
 
     // Setup our parameters -- Spins & Orbits are periods in seconds
     const TERRAIN_SPIN = 10
-    const CAMERA_RADIUS = 3.0
+    const CAMERA_RADIUS = 2.0
     const CAMERA_ORBIT = period(10.0) * seconds
     const EYE = [
         CAMERA_RADIUS * Math.cos(CAMERA_ORBIT),
