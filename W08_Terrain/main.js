@@ -92,10 +92,12 @@ function setup_geometry(geometry) {
 
     for(let i=0; i<geometry.attributes.length; i+=1) {
         let data = geometry.attributes[i]
+        console.log(data)
         supplyDataBuffer(data, i)
     }
 
     var indices = new Uint16Array(geometry.triangles.flat())
+    console.log(indices)
     var indexBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
@@ -106,36 +108,6 @@ function setup_geometry(geometry) {
         type: gl.UNSIGNED_SHORT,
         vao: triangleArray
     }
-}
-
-function makeGeom() {
-    g = {"triangles":
-        []
-    ,"attributes":
-        [ // position
-            []
-        , // color
-            []
-        ]
-    }
-    g.attributes[0].push([0,0,0])
-    g.attributes[1].push([1,1,1])
-    const n = 24
-    const r = 3
-    for(let i=0; i<n; i+=1) {
-        let ang = i*(2*Math.PI)/n
-        let r2 = r - (i%2)
-        g.attributes[0].push(
-            [Math.cos(ang)*r2,0,Math.sin(ang)*r2],
-        )
-        g.attributes[1].push([0,(i%2),0])
-    }
-    for(let i=0; i<n-1; i+=1) {
-        g.triangles.push(0, i+1, i+2)
-    }
-    g.triangles.push(0, n, 1)
-
-    return g
 }
 
 /** Converts information about orbital & spin periods in seconds to frequencies we can use
@@ -155,175 +127,61 @@ function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
 
-    // gl.bindVertexArray(tetrahedron.vao)
-
-    // gl.uniform4fv(program.uniforms.color, IlliniOrange)
-    // let m = m4rotX(seconds)
-    // let v = m4view([Math.cos(seconds/2),2,3], [0,0,0], [0,1,0])
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m))
-    // gl.uniformMatrix4fv(program.uniforms.p, false, p)
-    
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // let wrapped = seconds % 4
-    // let stage = Math.floor(wrapped)
-    // let t = wrapped - stage
-    // if (stage == 0) {
-    //     tr = m4trans(1,0,1*(1-t) + -1*(t))
-    // } else if (stage == 1) { 
-    //     tr = m4trans(...lerp(t, [1,0,-1], [-1,0,-1]))
-    // } else if (stage == 2) { 
-    //     tr = m4trans(...lerp(t, [-1,0,-1], [-1,0,1]))
-    // } else { // stage == 3
-    //     tr = m4trans(...lerp(t, [-1,0,1], [1,0,1]))
-    // }
-
-    // let m2 = m4mul(tr, m4scale(0.5, 0.5, 0.5))
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m2))
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // let m3 = m4mul(m, m4trans(0,1,0), m4scale(0.5, 0.5, 0.5), m4rotZ(seconds))
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m3))
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // let m4 = m4mul(m3, m4trans(1,0,0), m4scale(0.5, 0.5, 0.5))
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(v,m4))
-    // gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // gl.bindVertexArray(octahedron.vao)
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, v)
-    // gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0)
-
     // Slow down the animation here
     seconds = seconds / 1
 
     // Setup our parameters -- Spins & Orbits are periods in seconds
-    const SUN_SPIN = 2
-
-    const EARTH_SPIN = 0.4
-    const EARTH_ORBIT = 4
-    const EARTH_DISTANCE = 4
-    const EARTH_SCALE = .5
-
-    const MARS_SPIN = EARTH_SPIN * 2.2
-    const MARS_ORBIT = EARTH_ORBIT * 1.9
-    const MARS_DISTANCE = EARTH_DISTANCE * 1.6
-    const MARS_SCALE = .4
-
-    // This is an "anti-spin" -- reduce the orbit speed proportional to the spin its inheriting
-    // When we orbit, we are tidally locked by default, so do not add spin
-    const MOON_ORBIT = -EARTH_SPIN / .90
-    const MOON_SPIN = 0
-    const MOON_DISTANCE = 2.5
-    const MOON_SCALE = .5
-
-    // We are adding spin to Phobos's orbit, which already contains 1 Mars Spin
-    const PHOBOS_ORBIT = MARS_SPIN / 2
-    const PHOBOS_SPIN = 0
-    const PHOBOS_DISTANCE = 2.5
-    const PHOBOS_SCALE = .5
-
-    // Deimos only needs to go a little faster, so add a fairly large period to the Mars Spin
-    const DEIMOS_ORBIT = 4
-    const DEIMOS_SPIN = 0
-    const DEIMOS_DISTANCE = PHOBOS_DISTANCE * 2
-    const DEIMOS_SCALE = PHOBOS_SCALE / 2
-
+    const SUN_SPIN = 10
 
     // Set our perspective matrix
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective_matrix)
-    var view_matrix = m4view([1, 5, 11], [0, 0, 0], [0, 1, 0])
+    var view_matrix = m4view([1, 1, 3], [0, 0, 0], [0, 0, 1])
 
     // Render our planets (octahedrons) in hierarchal order
-    gl.bindVertexArray(octahedron.vao)
+    gl.bindVertexArray(terrain.vao)
 
     // A large octahedron ("the Sun")
     //     fixed at the origin
     //     spinning a full rotation once every two seconds
-    sun_model = m4rotY(period(SUN_SPIN) * seconds)
+    sun_model = m4rotZ(period(SUN_SPIN) * seconds)
     gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, sun_model))
-    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0)
+    gl.drawElements(terrain.mode, terrain.count, terrain.type, 0)
+}
 
-    // A smaller octahedron ("the Earth")
-    //     orbiting the Sun once every few seconds
-    //     spinning like a top several times a second
-    // Ignore the sun model since we don't need to inherit any of its movement -- it's easier just
-    // to use a straight rotation then a relative one.
-    earth_model = m4mul(
-        m4rotY(period(EARTH_ORBIT) * seconds),
-        m4trans(EARTH_DISTANCE, 0, 0),
-        m4rotY(period(EARTH_SPIN) * seconds),
-        m4scale(EARTH_SCALE, EARTH_SCALE, EARTH_SCALE)
-    )
-    gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, earth_model))
-    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0)
+/** Generate the terrain given fractures and grid size */
+function generate_terrain(gridsize, faults) {
+    var grid = []
+    var elements = []
+    for (let x = 0; x < gridsize; x++) {
+        for (let y = 0; y < gridsize; y++) {
+            // Create points on the XY plane. Z is our height, which we will set to 1 by default
+            // Position is the distance through the grid mapped to -1 to 1
+            grid.push([x/gridsize * 2 - 1, y/gridsize * 2 - 1, 1])
+            if (y === (gridsize-1) || x === (gridsize-1)) {
+                // Case: last col/row, no elements to draw
+                continue
+            }
+            xy_to_index = (x, y) => { return x * gridsize + y }
+            elements.push([xy_to_index(x, y), xy_to_index(x + 1, y), xy_to_index(x, y + 1)])
+            elements.push([xy_to_index(x + 1, y), xy_to_index(x, y + 1), xy_to_index(x + 1, y + 1)])
+        }
+    }
+    return {
+        attributes: [grid],
+        triangles: elements
+    }
+}
 
-    // An octahedron ("Mars") a little smaller than the Earth
-    //     1.6 times as far from the Sun as the Earth
-    //     orbiting the Sun 1.9 times slower than the Earth
-    //     spinning like a top 2.2 times slower than the Earth
-    // Again not inheriting either the earth or sun models
-    mars_model = m4mul(
-        m4rotY(period(MARS_ORBIT) * seconds),
-        m4trans(MARS_DISTANCE, 0, 0),
-        m4rotY(period(MARS_SPIN) * seconds),
-        m4scale(MARS_SCALE, MARS_SCALE, MARS_SCALE)
-    )
-    gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, mars_model))
-    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0)
-
-    // Render our moons (tetrahedrons) in hierarchal order
-    gl.bindVertexArray(tetrahedron.vao)
-
-    // A tetrahedron ("the Moon") smaller than the Earth
-    //     smaller than the Earth
-    //     orbiting the Earth faster than the Earth orbits the Sun but slower than the Earth spins
-    //     always presenting the same side of itself to the Earth
-    moon_model = m4mul(
-        earth_model,
-        m4rotY(period(MOON_ORBIT) * seconds),
-        m4trans(MOON_DISTANCE, 0, 0),
-        m4rotY(period(MOON_SPIN) * seconds),
-        m4scale(MOON_SCALE, MOON_SCALE, MOON_SCALE)
-    )
-    gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, moon_model))
-    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    // A tetrahedron ("Phobos") smaller than Mars
-    //     orbiting Mars several times faster than Mars spins
-    //     always presenting the same side of itself to Mars
-    phobos_model = m4mul(
-        mars_model,
-        m4rotY(period(PHOBOS_ORBIT) * seconds),
-        m4trans(PHOBOS_DISTANCE, 0, 0),
-        m4rotY(period(PHOBOS_SPIN) * seconds),
-        m4scale(PHOBOS_SCALE, PHOBOS_SCALE, PHOBOS_SCALE)
-    )
-    gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, phobos_model))
-    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
-    
-    // A tetrahedron ("Deimos") half the size of Phobos
-    //     twice as far from Mars as Phobos
-    //     orbiting Mars only a little faster than Mars spins
-    //     always presenting the same side of itself to Mars
-    deimos_model = m4mul(
-        mars_model,
-        m4rotY(period(DEIMOS_ORBIT) * seconds),
-        m4trans(DEIMOS_DISTANCE, 0, 0),
-        m4rotY(period(DEIMOS_SPIN) * seconds),
-        m4scale(DEIMOS_SCALE, DEIMOS_SCALE, DEIMOS_SCALE)
-    )
-    gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, deimos_model))
-    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0)
-
+function add_fault(grid) {
+    return grid
 }
 
 /** Compute any time-varying or animated aspects of the scene */
 function tick(milliseconds) {
     let seconds = milliseconds / 1000;
-
-    draw(seconds)
+    if (terrain != null) {
+        draw(seconds)
+    }
     requestAnimationFrame(tick)
 }
 
@@ -354,9 +212,13 @@ window.addEventListener('load', async (event) => {
     window.program = compileShader(vs,fs)
     gl.enable(gl.DEPTH_TEST)
 
-    let data = await fetch('assets/geometry.json').then(r=>r.json())
-    window.tetrahedron = setup_geometry(data.tetrahedron)
-    window.octahedron = setup_geometry(data.octahedron)
+    window.terrain = null
+    document.querySelector('#submit').addEventListener('click', event => {
+        const gridsize = Number(document.querySelector('#gridsize').value) || 2
+        const faults = Number(document.querySelector('#faults').value) || 0
+        // TODO: generate a new gridsize-by-gridsize grid here, then apply faults to it
+        window.terrain = setup_geometry(generate_terrain(gridsize, faults))
+    })
     
     fillScreen()
     window.addEventListener('resize', fillScreen)
