@@ -234,14 +234,16 @@ function generate_terrain(gridsize, faults, weathering) {
 
     // Weathering
     for (let w = 0; w < weathering; w++) {
+        let new_grid = []
         for (let i = 0; i < grid[0].length; i++) {
             neighbors = get_neighbors(i)
             mean_neighbor_height = 1/4 * (
                 neighbors.north[2] + neighbors.east[2] + neighbors.south[2] + neighbors.west[2]
             )
             new_height = 1/2 * (grid[0][i][2] + mean_neighbor_height)
-            grid[0][i] = [grid[0][i][0], grid[0][i][1], new_height]
+            new_grid.push([grid[0][i][0], grid[0][i][1], new_height])
         }
+        grid[0] = new_grid
     }
 
     // Compute normals (new -- grid-based)
