@@ -173,7 +173,7 @@ function add_terrain_fault(grid, delta) {
 }
 
 /** Generate the terrain given fractures and grid size */
-function generate_terrain(gridsize, faults) {
+function generate_terrain(gridsize, faults, weathering) {
     const HIGHEST_PEAK = 1
     xy_to_index = (x, y) => { return x * gridsize + y }
     var grid = [[], []]
@@ -215,28 +215,42 @@ function generate_terrain(gridsize, faults) {
         grid[0][i] = [grid[0][i][0], grid[0][i][1], new_height]
     }
 
-    // Compute normals (old -- model)
-    // for (let i = 0; i < elements.length; i++) {
-    //     edge1 = sub(grid[0][elements[i][1]], grid[0][elements[i][0]])
-    //     edge2 = sub(grid[0][elements[i][2]], grid[0][elements[i][0]])
-    //     normal = cross(edge1, edge2)
-
-    //     for (let j = 0; j < 3; j++) {
-    //         // Add the computed normal to each of the points' normal attribute
-    //         grid[1][elements[i][j]] = add(grid[1][elements[i][j]], normal)
-    //     }
-    // }
-    // Compute normals (new -- grid-based)
-    for (let i = 0; i < grid[0].length; i++) {
+    function get_neighbors(index) {
         clamp = (value) => { return Math.max(Math.min(value, gridsize - 1), 0)}
-        let x = Math.floor(i / gridsize)
-        let y = i % gridsize
+        let x = Math.floor(index / gridsize)
+        let y = index % gridsize
         var north = grid[0][clamp((x-1)) * gridsize + y]
         var east = grid[0][x * gridsize + clamp(y + 1)]
         var south = grid[0][clamp(x+1) * gridsize + y]
         var west = grid[0][x * gridsize + clamp(y - 1)]
 
-        grid[1][i] = cross(sub(north, south), sub(west, east))
+        return {
+            north: north,
+            east: east,
+            south: south,
+            west: west
+        }
+    }
+
+    // Weathering
+    for (let w = 0; w < weathering; w++) {
+        for (let i = 0; i < grid[0].length; i++) {
+            neighbors = get_neighbors(i)
+            mean_neighbor_height = 1/4 * (
+                neighbors.north[2] + neighbors.east[2] + neighbors.south[2] + neighbors.west[2]
+            )
+            new_height = 1/2 * (grid[0][i][2] + mean_neighbor_height)
+            grid[0][i] = [grid[0][i][0], grid[0][i][1], new_height]
+        }
+    }
+
+    // Compute normals (new -- grid-based)
+    for (let i = 0; i < grid[0].length; i++) {
+        neighbors = get_neighbors(i)
+
+        grid[1][i] = cross(
+            sub(neighbors.north, neighbors.south), sub(neighbors.west, neighbors.east)
+        )
     }
 
     // normalize normals
@@ -296,8 +310,9 @@ window.addEventListener('load', async (event) => {
     document.querySelector('#submit').addEventListener('click', event => {
         const gridsize = Number(document.querySelector('#gridsize').value) || 2
         const faults = Number(document.querySelector('#faults').value) || 0
+        const weathering = Number(document.querySelector('#weathering').value) || 0
         // TODO: generate a new gridsize-by-gridsize grid here, then apply faults to it
-        window.terrain = setup_geometry(generate_terrain(gridsize, faults))
+        window.terrain = setup_geometry(generate_terrain(gridsize, faults, weathering))
     })
     
     fillScreen()
