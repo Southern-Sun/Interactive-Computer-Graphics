@@ -131,32 +131,30 @@ function draw(seconds) {
     seconds = seconds / 1
 
     // Setup our parameters -- Spins & Orbits are periods in seconds
-    const SUN_SPIN = 10
+    const TERRAIN_SPIN = 10
 
     // Set our perspective matrix
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective_matrix)
     var view_matrix = m4view([1, 1, 3], [0, 0, 0], [0, 0, 1])
 
-    // Render our planets (octahedrons) in hierarchal order
     gl.bindVertexArray(terrain.vao)
 
-    // A large octahedron ("the Sun")
-    //     fixed at the origin
-    //     spinning a full rotation once every two seconds
-    sun_model = m4rotZ(period(SUN_SPIN) * seconds)
-    gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, sun_model))
+    terrain_model = m4rotZ(period(TERRAIN_SPIN) * seconds)
+    gl.uniformMatrix4fv(program.uniforms.model_view, false, m4mul(view_matrix, terrain_model))
     gl.drawElements(terrain.mode, terrain.count, terrain.type, 0)
 }
 
 /** Generate the terrain given fractures and grid size */
 function generate_terrain(gridsize, faults) {
-    var grid = []
+    var grid = [[], []]
     var elements = []
     for (let x = 0; x < gridsize; x++) {
         for (let y = 0; y < gridsize; y++) {
             // Create points on the XY plane. Z is our height, which we will set to 1 by default
             // Position is the distance through the grid mapped to -1 to 1
-            grid.push([x/gridsize * 2 - 1, y/gridsize * 2 - 1, 1])
+            let z = Math.sqrt(Math.sin(y/gridsize * Math.PI) + Math.sin(x/gridsize * Math.PI))
+            grid[0].push([x/gridsize * 2 - 1, y/gridsize * 2 - 1, z])
+            grid[1].push([.5, .3, .2])
             if (y === (gridsize-1) || x === (gridsize-1)) {
                 // Case: last col/row, no elements to draw
                 continue
@@ -167,7 +165,7 @@ function generate_terrain(gridsize, faults) {
         }
     }
     return {
-        attributes: [grid],
+        attributes: grid,
         triangles: elements
     }
 }
