@@ -127,8 +127,9 @@ function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
 
-    // Default brown color
-    gl.uniform4fv(program.uniforms.color, [.7, .4, .2, 1])
+    // Default steep & shallow colors
+    gl.uniform4fv(program.uniforms.shallow_color, [0.2, 0.6, 0.1, 1])
+    gl.uniform4fv(program.uniforms.steep_color, [0.6, 0.3, 0.3, 1])
 
     // Slow down the animation here
     seconds = seconds / 2
