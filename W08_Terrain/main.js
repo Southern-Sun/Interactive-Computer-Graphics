@@ -127,6 +127,15 @@ function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program)
 
+    // Default brown color
+    gl.uniform4fv(program.uniforms.color, [.5, 0, .5, 1])
+
+    var light_direction = [1, 1, 1]
+    var halfway_vector = normalize(add(light_direction, [0, 0, 1]))
+    gl.uniform3fv(program.uniforms.light_direction, normalize(light_direction))
+    gl.uniform3fv(program.uniforms.light_color, [1, 1, 1])
+    gl.uniform3fv(program.uniforms.halfway, halfway_vector)
+
     // Slow down the animation here
     seconds = seconds / 1
 
@@ -146,24 +155,45 @@ function draw(seconds) {
 
 /** Generate the terrain given fractures and grid size */
 function generate_terrain(gridsize, faults) {
+    xy_to_index = (x, y) => { return x * gridsize + y }
     var grid = [[], []]
     var elements = []
     for (let x = 0; x < gridsize; x++) {
         for (let y = 0; y < gridsize; y++) {
+            // Position
             // Create points on the XY plane. Z is our height, which we will set to 1 by default
             // Position is the distance through the grid mapped to -1 to 1
             let z = Math.sqrt(Math.sin(y/gridsize * Math.PI) + Math.sin(x/gridsize * Math.PI))
+            if (isNaN(z)) { console.log(x, y) }
             grid[0].push([x/gridsize * 2 - 1, y/gridsize * 2 - 1, z])
-            grid[1].push([.5, .3, .2])
+
+            // Normals
+            grid[1].push([0, 0, 0])
+
             if (y === (gridsize-1) || x === (gridsize-1)) {
                 // Case: last col/row, no elements to draw
                 continue
             }
-            xy_to_index = (x, y) => { return x * gridsize + y }
             elements.push([xy_to_index(x, y), xy_to_index(x + 1, y), xy_to_index(x, y + 1)])
-            elements.push([xy_to_index(x + 1, y), xy_to_index(x, y + 1), xy_to_index(x + 1, y + 1)])
+            elements.push([xy_to_index(x + 1, y), xy_to_index(x + 1, y + 1), xy_to_index(x, y + 1)])
         }
     }
+
+    for (let i = 0; i < elements.length; i++) {
+        edge1 = sub(grid[0][elements[i][1]], grid[0][elements[i][0]])
+        edge2 = sub(grid[0][elements[i][2]], grid[0][elements[i][0]])
+        normal = cross(edge1, edge2)
+
+        for (let j = 0; j < 3; j++) {
+            // Add the computed normal to each of the points' normal attribute
+            grid[1][elements[i][j]] = add(grid[1][elements[i][j]], normal)
+        }
+    }
+
+    for (let i = 0; i < grid[1].length; i++) {
+        grid[1][i] = normalize(grid[1][i])
+    }
+
     return {
         attributes: grid,
         triangles: elements
@@ -209,6 +239,8 @@ window.addEventListener('load', async (event) => {
     let fs = await fetch('src/fragment.glsl').then(res => res.text())
     window.program = compileShader(vs,fs)
     gl.enable(gl.DEPTH_TEST)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
     window.terrain = null
     document.querySelector('#submit').addEventListener('click', event => {
