@@ -128,7 +128,7 @@ function draw(seconds) {
     gl.useProgram(program)
 
     // Default brown color
-    gl.uniform4fv(program.uniforms.color, [.5, 0, .5, 1])
+    gl.uniform4fv(program.uniforms.color, [.7, .4, .2, 1])
 
     var light_direction = [1, 1, 1]
     var halfway_vector = normalize(add(light_direction, [0, 0, 1]))
@@ -144,7 +144,7 @@ function draw(seconds) {
 
     // Set our perspective matrix
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective_matrix)
-    var view_matrix = m4view([1, 1, 3], [0, 0, 0], [0, 0, 1])
+    var view_matrix = m4view([1, 1, 2], [0, 0, 0], [0, 0, 1])
 
     gl.bindVertexArray(terrain.vao)
 
@@ -153,8 +153,21 @@ function draw(seconds) {
     gl.drawElements(terrain.mode, terrain.count, terrain.type, 0)
 }
 
+function add_terrain_fault(grid, delta) {
+    var point = [Math.random() * 2 - 1, Math.random() * 2 - 1, 0]
+    var normal = [Math.random() * 2 - 1, Math.random() * 2 - 1, 0]
+
+    for (let i = 0; i < grid.length; i++) {
+        let direction = dot(sub(grid[i], point), normal) >= 0 ? 1 : -1
+        grid[i] = [grid[i][0], grid[i][1], grid[i][2] - delta * direction]
+    }
+
+    return grid
+}
+
 /** Generate the terrain given fractures and grid size */
 function generate_terrain(gridsize, faults) {
+    const HIGHEST_PEAK = 1
     xy_to_index = (x, y) => { return x * gridsize + y }
     var grid = [[], []]
     var elements = []
@@ -165,7 +178,7 @@ function generate_terrain(gridsize, faults) {
             // Position is the distance through the grid mapped to -1 to 1
             let z = Math.sqrt(Math.sin(y/gridsize * Math.PI) + Math.sin(x/gridsize * Math.PI))
             if (isNaN(z)) { console.log(x, y) }
-            grid[0].push([x/gridsize * 2 - 1, y/gridsize * 2 - 1, z])
+            grid[0].push([x/gridsize * 2 - 1, y/gridsize * 2 - 1, 0])
 
             // Normals
             grid[1].push([0, 0, 0])
@@ -179,17 +192,47 @@ function generate_terrain(gridsize, faults) {
         }
     }
 
-    for (let i = 0; i < elements.length; i++) {
-        edge1 = sub(grid[0][elements[i][1]], grid[0][elements[i][0]])
-        edge2 = sub(grid[0][elements[i][2]], grid[0][elements[i][0]])
-        normal = cross(edge1, edge2)
-
-        for (let j = 0; j < 3; j++) {
-            // Add the computed normal to each of the points' normal attribute
-            grid[1][elements[i][j]] = add(grid[1][elements[i][j]], normal)
-        }
+    // Add faults here before we bother with computing normals
+    for (let i = 0; i < faults; i++) {
+        let delta = 1 / (i + 5)
+        grid[0] = add_terrain_fault(grid[0], delta)
     }
 
+    // Normalize the grid heights
+    heights = grid[0].map(point => point[2])
+    max_height = Math.max(...heights)
+    min_height = Math.min(...heights)
+    for (let i = 0; i < grid[0].length; i++) {
+        new_height = (grid[0][i][2] - .5 * (max_height + min_height)) / (max_height - min_height)
+        new_height = new_height * HIGHEST_PEAK
+        grid[0][i] = [grid[0][i][0], grid[0][i][1], new_height]
+    }
+
+    // Compute normals (old -- model)
+    // for (let i = 0; i < elements.length; i++) {
+    //     edge1 = sub(grid[0][elements[i][1]], grid[0][elements[i][0]])
+    //     edge2 = sub(grid[0][elements[i][2]], grid[0][elements[i][0]])
+    //     normal = cross(edge1, edge2)
+
+    //     for (let j = 0; j < 3; j++) {
+    //         // Add the computed normal to each of the points' normal attribute
+    //         grid[1][elements[i][j]] = add(grid[1][elements[i][j]], normal)
+    //     }
+    // }
+    // Compute normals (new -- grid-based)
+    for (let i = 0; i < grid[0].length; i++) {
+        clamp = (value) => { return Math.max(Math.min(value, gridsize - 1), 0)}
+        let x = Math.floor(i / gridsize)
+        let y = i % gridsize
+        var north = grid[0][clamp((x-1)) * gridsize + y]
+        var east = grid[0][x * gridsize + clamp(y + 1)]
+        var south = grid[0][clamp(x+1) * gridsize + y]
+        var west = grid[0][x * gridsize + clamp(y - 1)]
+
+        grid[1][i] = cross(sub(north, south), sub(west, east))
+    }
+
+    // normalize normals
     for (let i = 0; i < grid[1].length; i++) {
         grid[1][i] = normalize(grid[1][i])
     }
