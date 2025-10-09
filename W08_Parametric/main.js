@@ -92,12 +92,12 @@ function setup_geometry(geometry) {
 
     for(let i=0; i<geometry.attributes.length; i+=1) {
         let data = geometry.attributes[i]
-        console.log(data)
+        // console.log(data)
         supplyDataBuffer(data, i)
     }
 
     var indices = new Uint16Array(geometry.triangles.flat())
-    console.log(indices)
+    // console.log(indices)
     var indexBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
@@ -139,7 +139,7 @@ function draw(seconds) {
     const EYE = [
         CAMERA_RADIUS * Math.cos(CAMERA_ORBIT),
         CAMERA_RADIUS * Math.sin(CAMERA_ORBIT),
-        1.5
+        1
     ]
 
     var light_direction = [1, 1, 1]
@@ -161,33 +161,89 @@ function draw(seconds) {
 
 /** Generate the object given rings & slices */
 function generate_object(rings, slices, is_torus) {
-    var attributes = []
+    var attributes = [[]]
     var triangles = []
 
     // One way we can approach this is by rotating origin point with a matrix.
     // First, we have two static points, top and bottom
-    top = [0, 0, 1, 1]
-    bottom = [0, 0, -1, 1]
+    var top = [0, 0, 1, 1]
+    var bottom = [0, 0, -1, 1]
+    attributes[0].push(top)
+    attributes[0].push(bottom)
 
     // Next, we can rotate top n slices upwards, moving PI/n+1 radians each time (one half rotation)
-    slice_matrix = m4rotX(Math.PI / (slices + 1))
-    for (let i = 0; i < slices; i++) {
+    var ring_matrix = m4rotX(Math.PI / (rings + 1))
+    var last_point = bottom
+    for (let i = 0; i < rings; i++) {
+        last_point = m4mul(ring_matrix, last_point)
+        attributes[0].push(last_point)
         
+        // Then, for each step in the slice rotation, anchor on that point and rotate in Z for 2*PI
+        var slice_matrix = m4rotZ(Math.PI * 2 / slices)
+        var last_slice = last_point
+        // j = 1 since we already saved our first point
+        for (let j = 1; j < slices; j++) {
+            last_slice = m4mul(slice_matrix, last_slice)
+            attributes[0].push(last_slice)
+        }
     }
 
-    // Then, for each step in the slice rotation, anchor on that point and rotate in Z for 2*PI
+    // Finally, we need to connect our geometry. We know that the first two points [0], [1] are top
+    // and bottom. Then, each ring has slice # of points as it moves up. The first and last case are
+    // degenerate - they connect every point in the first & last ring to the bottom & top.
+    // After those cases, each point in the ring should make two triangles with the ring above it
 
+    // Degenerate case: bottom & top
+    const bottom_slice_offset = 2
+    const top_slice_offset = bottom_slice_offset + (rings - 1) * slices
+    for (let i = 0; i < slices; i++) {
+        let top_triangle = [
+            0,
+            top_slice_offset + (i + 1) % slices,
+            top_slice_offset + i
+        ]
+        triangles.push(top_triangle)
+        let bottom_triangle = [
+            1,
+            bottom_slice_offset + i,
+            bottom_slice_offset + (i + 1) % slices
+        ]
+        triangles.push(bottom_triangle)
+    }
 
-    return {
+    for (let ring = 0; ring < (rings - 1); ring++) {
+        for (let i = 0; i < slices; i++) {
+            // We need two triangles for every 4 points
+            let bottom_ring_first_point = bottom_slice_offset + i + ring * slices
+            let bottom_ring_second_point = bottom_slice_offset + (i + 1) % slices + ring * slices
+            let top_ring_first_point = bottom_ring_first_point + slices
+            let top_ring_second_point = bottom_ring_second_point + slices
+
+            triangles.push([
+                bottom_ring_first_point,
+                top_ring_second_point,
+                bottom_ring_second_point
+            ])
+            triangles.push([
+                bottom_ring_first_point,
+                top_ring_first_point,
+                top_ring_second_point
+            ])
+        }
+    }
+
+    return_value = {
         attributes: attributes,
         triangles: triangles
     }
+    console.log(return_value)
+    return return_value
 }
 
 /** Compute any time-varying or animated aspects of the scene */
 function tick(milliseconds) {
     let seconds = milliseconds / 1000;
-    if (terrain != null) {
+    if (geometry != null) {
         draw(seconds)
     }
     requestAnimationFrame(tick)
@@ -222,7 +278,7 @@ window.addEventListener('load', async (event) => {
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-    window.terrain = null
+    window.geometry = null
     document.querySelector('#submit').addEventListener('click', event => {
         const rings = Number(document.querySelector('#rings').value) || 1
         const slices = Number(document.querySelector('#slices').value) || 3
