@@ -13,7 +13,7 @@ out vec4 fragColor;
 
 void main() {
     vec3 normal = normalize(vnormal);
-    float blinn = pow(max(dot(normal, halfway), 0.0), 150.0);
+    float blinn = pow(max(dot(normal, halfway), 0.0), 250.0);
     float lambert = dot(normal, light_direction);
     fragColor = vec4(
         color.rgb * lambert * light_color
@@ -21,3 +21,7 @@ void main() {
         color.a
     );
 }
+
+// void main() {
+//     fragColor = vec4(vnormal, 1.0);
+// }

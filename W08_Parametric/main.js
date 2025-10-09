@@ -128,7 +128,7 @@ function draw(seconds) {
     gl.useProgram(program)
 
     // Default brown color
-    gl.uniform4fv(program.uniforms.color, [.7, .4, .2, 1])
+    gl.uniform4fv(program.uniforms.color, IlliniOrange)
 
     // Slow down the animation here
     seconds = seconds / 2
@@ -139,10 +139,10 @@ function draw(seconds) {
     const EYE = [
         CAMERA_RADIUS * Math.cos(CAMERA_ORBIT),
         CAMERA_RADIUS * Math.sin(CAMERA_ORBIT),
-        1
+        2
     ]
 
-    var light_direction = [1, 1, 1]
+    var light_direction = [0, 0, 1]
     var halfway_vector = normalize(add(light_direction, EYE))
     gl.uniform3fv(program.uniforms.light_direction, normalize(light_direction))
     gl.uniform3fv(program.uniforms.light_color, [1, 1, 1])
@@ -161,7 +161,14 @@ function draw(seconds) {
 
 /** Generate the object given rings & slices */
 function generate_object(rings, slices, is_torus) {
-    var attributes = [[]]
+    if (is_torus) {
+        return generate_torus(rings, slices)
+    }
+    return generate_sphere(rings, slices)
+}
+
+function generate_sphere(rings, slices) {
+    var attributes = [[], []]
     var triangles = []
 
     // One way we can approach this is by rotating origin point with a matrix.
@@ -170,6 +177,8 @@ function generate_object(rings, slices, is_torus) {
     var bottom = [0, 0, -1, 1]
     attributes[0].push(top)
     attributes[0].push(bottom)
+    attributes[1].push(normalize(top))
+    attributes[1].push(normalize(bottom))
 
     // Next, we can rotate top n slices upwards, moving PI/n+1 radians each time (one half rotation)
     var ring_matrix = m4rotX(Math.PI / (rings + 1))
@@ -177,6 +186,7 @@ function generate_object(rings, slices, is_torus) {
     for (let i = 0; i < rings; i++) {
         last_point = m4mul(ring_matrix, last_point)
         attributes[0].push(last_point)
+        attributes[1].push(normalize(last_point))
         
         // Then, for each step in the slice rotation, anchor on that point and rotate in Z for 2*PI
         var slice_matrix = m4rotZ(Math.PI * 2 / slices)
@@ -185,6 +195,7 @@ function generate_object(rings, slices, is_torus) {
         for (let j = 1; j < slices; j++) {
             last_slice = m4mul(slice_matrix, last_slice)
             attributes[0].push(last_slice)
+            attributes[1].push(normalize(last_slice))
         }
     }
 
@@ -229,6 +240,59 @@ function generate_object(rings, slices, is_torus) {
                 top_ring_first_point,
                 top_ring_second_point
             ])
+        }
+    }
+
+    return_value = {
+        attributes: attributes,
+        triangles: triangles
+    }
+    console.log(return_value)
+    return return_value
+}
+
+function generate_torus(rings, slices) {
+    var attributes = [[], []]
+    var triangles = []
+
+    const TORUS_THICKNESS = .5
+    const TORUS_RADIUS = 1
+    // One way we can approach this is by rotating point with a matrix.
+    // First, we have one static point, the offest for the torus
+    var anchor = [0, 0, 0, 1]
+    var radius_matrix = m4trans(TORUS_RADIUS, 0, 0)
+
+    // Next, we rotate this point around the origin to create our torus center
+    for (let i = 0; i < slices; i++) {
+        let slice_matrix = m4mul(
+            m4rotZ(Math.PI * 2 / slices * i),
+            radius_matrix
+        )
+        // Center point of the current slice:
+        let slice_center = m4mul(slice_matrix, anchor)
+        let offset_matrix = m4trans(0, 0, TORUS_THICKNESS)
+        
+        for (let ring = 0; ring < rings; ring++) {
+            let ring_matrix = m4rotY(Math.PI * 2 / rings * ring)
+            // Offset the point, then rotate around the ring, then rotate around the slice
+            let current_point = m4mul(slice_matrix, ring_matrix, offset_matrix, anchor)
+            attributes[0].push(current_point)
+            // Normal is the vector between this point and the slice center
+            attributes[1].push(normalize(sub(current_point, slice_center)))
+        }
+    }
+
+    // Now, we need to connect the geometry. 
+    // Each point in the ring should make two triangles with the ring above it, same as sphere
+    for (let slice = 0; slice < slices; slice++) {
+        for (let ring = 0; ring < rings; ring++) {
+            ring1_first = ring + slice * rings
+            ring1_second = (ring + 1) % rings + slice * rings
+            ring2_first = (ring1_first + rings) % (slices * rings)
+            ring2_second = (ring1_second + rings) % (slices * rings)
+
+            triangles.push([ring1_first, ring2_first, ring2_second])
+            triangles.push([ring1_first, ring2_second, ring1_second])
         }
     }
 
