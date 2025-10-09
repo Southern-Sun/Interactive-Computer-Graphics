@@ -130,7 +130,7 @@ function draw() {
     // Default brown color
     gl.uniform4fv(program.uniforms.color, [.7, .4, .2, 1])
     
-    TRANSLATION_WEIGHT = .02
+    TRANSLATION_WEIGHT = .005
     ANGULAR_WEIGHT = .005
     SCALE = .5
     GLOBAL_UP = [0, 0, 1]
@@ -147,35 +147,36 @@ function draw() {
     camera.dir = normalize(m3mul(m3rotZ(yaw), camera.dir))
     // Rotation of v around an axis is v*cos + cross(axis, v) * sin + axis * dot(axis, v) * 1-cos
     camera.dir = add(
-        mul(camera.dir, Math.cos(pitch)),
-        mul(cross(camera_right, camera.dir), Math.sin(pitch)),
-        mul(camera_right, dot(camera_right, camera.dir), (1 - Math.cos(pitch)))
+        add(
+            mul(camera.dir, Math.cos(pitch)),
+            mul(cross(camera_right, camera.dir), Math.sin(pitch)),
+        ),
+        mul(
+            mul(camera_right, dot(camera_right, camera.dir)), 
+            (1 - Math.cos(pitch))
+        )
     )
 
     // Apply translations
     translation = add(
-        mul(camera.dir, TRANSLATION_WEIGHT * (key_state.d - key_state.a)),
-        mul(camera_right, TRANSLATION_WEIGHT * (key_state.w - key_state.s)),
+        add(
+            mul(camera_right, TRANSLATION_WEIGHT * (key_state.d - key_state.a)),
+            mul(camera.dir, TRANSLATION_WEIGHT * (key_state.w - key_state.s)),
+        ),
         mul(camera_up, TRANSLATION_WEIGHT * (key_state.e - key_state.q)),
     )
     camera.loc = add(camera.loc, translation)
-
-    view_matrix = [
-        camera_right[0], camera_up[0], -camera.dir[0], -dot(camera_right, camera.loc),
-        camera_right[1], camera_up[1], -camera.dir[1], -dot(camera_up, camera.loc),
-        camera_right[2], camera_up[2], -camera.dir[2], dot(camera.dir, camera.loc),
-        0, 0, 0, 1
-    ]
     
-    var light_direction = [1, 1, 1]
-    var halfway_vector = normalize(add(light_direction, camera.loc))
-    gl.uniform3fv(program.uniforms.light_direction, normalize(light_direction))
+    var light_direction = normalize([1, 1, 1])
+    var view_direction = normalize(mul(camera.dir, -1))
+    var halfway_vector = normalize(add(light_direction, view_direction))
+    gl.uniform3fv(program.uniforms.light_direction, light_direction)
     gl.uniform3fv(program.uniforms.light_color, [1, 1, 1])
     gl.uniform3fv(program.uniforms.halfway, halfway_vector)
 
     // Set our perspective matrix
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective_matrix)
-    // var view_matrix = m4view(EYE, CENTER, [0, 0, 1])
+    var view_matrix = m4view(camera.loc, add(camera.loc, camera.dir), GLOBAL_UP)
 
     gl.bindVertexArray(terrain.vao)
 
@@ -333,7 +334,7 @@ window.addEventListener('load', async (event) => {
     const weathering = 10
     window.terrain = setup_geometry(generate_terrain(gridsize, faults, weathering))
 
-    window.camera = {loc: [0, -2, 3], dir: [0, 1, 0]}
+    window.camera = {loc: [-1, -1, 1], dir: [1, 1, -.2]}
     window.key_state = {
         q: false,
         w: false,
