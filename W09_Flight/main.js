@@ -168,8 +168,7 @@ function draw() {
     camera.loc = add(camera.loc, translation)
     
     var light_direction = normalize([1, 1, 1])
-    var view_direction = normalize(mul(camera.dir, -1))
-    var halfway_vector = normalize(add(light_direction, view_direction))
+    var halfway_vector = normalize(add(light_direction, camera.loc))
     gl.uniform3fv(program.uniforms.light_direction, light_direction)
     gl.uniform3fv(program.uniforms.light_color, [1, 1, 1])
     gl.uniform3fv(program.uniforms.halfway, halfway_vector)
