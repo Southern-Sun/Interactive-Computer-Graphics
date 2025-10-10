@@ -287,6 +287,7 @@ window.addEventListener('load', async (event) => {
         const faults = Number(document.querySelector('#faults').value) || 0
         const material = document.querySelector("#material").value
         window.mode = null
+        window.base_color = null
         if (material == "") {
             window.mode = "basic"
             window.base_color = [1, 1, 1, .3]
@@ -299,9 +300,46 @@ window.addEventListener('load', async (event) => {
                 Number("0x" + material.substr(7, 2)),
             ]
         } else if (/[.](jpg|png)$/.test(material)) {
-            // 
-            window.mode = "texture"
+            // TODO: Start here by adding the image processing code
+            var image = new Image()
+            image.crossOrigin = "anonymous"
+            image.src = material
+            image.addEventListener("error", event => {
+                window.mode = "basic"
+                window.base_color = [1, 0, 1, 0]
+            })
+            image.addEventListener("load", event => {
+                window.mode = "texture"
+
+                // Bind the texture
+                let slot = 0
+                let texture = gl.createTexture()
+                gl.activeTexture(gl.TEXTURE0 + slot)
+                gl.bindTexture(gl.TEXTURE_2D, texture)
+
+                // Configure lookups
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+
+                // Send image to GPU
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.RGBA,
+                    gl.RGBA,
+                    gl.UNSIGNED_BYTE,
+                    image,
+                )
+            })
+        } else {
+            // Fall back to basic (no entry)
+            window.mode = "basic"
+            window.base_color = [1, 1, 1, .3]
         }
+        
         window.terrain = setup_geometry(generate_terrain(gridsize, faults))
     })
     
