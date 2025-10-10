@@ -2,7 +2,7 @@
 precision highp float;
 
 uniform vec4 color;
-uniform sampler2D texture;
+uniform sampler2D texture_image;
 
 uniform vec3 light_direction;
 uniform vec3 light_color;
@@ -14,12 +14,11 @@ in vec2 vtexture_coord;
 out vec4 fragColor;
 
 void main() {
+    vec4 tcolor = texture(texture_image, vtexture_coord);
     vec3 normal = normalize(vnormal);
-    float blinn = pow(max(dot(normal, halfway), 0.0), 150.0);
     float lambert = dot(normal, light_direction);
     fragColor = vec4(
-        color.rgb * lambert * light_color
-        + light_color * blinn,
-        color.a
+        tcolor.rgb * lambert,
+        1.0
     );
 }

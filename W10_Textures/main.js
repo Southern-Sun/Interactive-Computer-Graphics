@@ -119,12 +119,10 @@ function setup_geometry(geometry) {
 
     for(let i=0; i<geometry.attributes.length; i+=1) {
         let data = geometry.attributes[i]
-        console.log(data)
         supplyDataBuffer(data, i)
     }
 
     var indices = new Uint16Array(geometry.triangles.flat())
-    console.log(indices)
     var indexBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
@@ -154,6 +152,13 @@ function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     let program = window.programs[window.mode]
     gl.useProgram(program)
+    if (window.mode === "texture") {
+        const sampler_location = program.uniforms.texture_image
+        gl.uniform1i(sampler_location, window.texture_slot)
+        gl.activeTexture(gl.TEXTURE0 + window.texture_slot)
+        gl.bindTexture(gl.TEXTURE_2D, window.texture)
+    }
+
 
     // Default brown color
     gl.uniform4fv(program.uniforms.color, window.base_color)
@@ -204,19 +209,19 @@ function add_terrain_fault(grid, delta) {
 function generate_terrain(gridsize, faults) {
     const HIGHEST_PEAK = 1
     xy_to_index = (x, y) => { return x * gridsize + y }
-    var grid = [[], []]
+    var grid = [[], [], []]
     var elements = []
     for (let x = 0; x < gridsize; x++) {
         for (let y = 0; y < gridsize; y++) {
             // Position
-            // Create points on the XY plane. Z is our height, which we will set to 1 by default
-            // Position is the distance through the grid mapped to -1 to 1
-            let z = Math.sqrt(Math.sin(y/gridsize * Math.PI) + Math.sin(x/gridsize * Math.PI))
-            if (isNaN(z)) { console.log(x, y) }
             grid[0].push([x/gridsize * 2 - 1, y/gridsize * 2 - 1, 0])
 
             // Normals
             grid[1].push([0, 0, 0])
+
+            // Texture coordinates
+            // Gridsize -1 so our bottom right corner has coordinate [1, 1]
+            grid[2].push([x / (gridsize-1), y / (gridsize-1)])
 
             if (y === (gridsize-1) || x === (gridsize-1)) {
                 // Case: last col/row, no elements to draw
@@ -261,10 +266,12 @@ function generate_terrain(gridsize, faults) {
         grid[1][i] = normalize(grid[1][i])
     }
 
-    return {
+    let output = {
         attributes: grid,
         triangles: elements
     }
+    console.log(output)
+    return output
 }
 
 function add_fault(grid) {
@@ -320,12 +327,15 @@ window.addEventListener('load', async (event) => {
     
     window.mode = "basic"
     window.base_color = [1, 1, 1, .3]
+    window.texture_image = null
     document.querySelector("#material").addEventListener("change", event => {
         const material = document.querySelector("#material").value
         if (material == "") {
+            console.log("No entry")
             window.mode = "basic"
             window.base_color = [1, 1, 1, .3]
         } else if (/^#[0-9a-f]{8}$/i.test(material)) {
+            console.log("Interpreting string")
             window.mode = "basic"
             window.base_color = [
                 Number("0x" + material.substr(1, 2)) / 255,
@@ -334,20 +344,23 @@ window.addEventListener('load', async (event) => {
                 Number("0x" + material.substr(7, 2)) / 255,
             ]
         } else if (/[.](jpg|png)$/.test(material)) {
-            // TODO: Start here by adding the image processing code
+            console.log("Loading image")
             var image = new Image()
             image.crossOrigin = "anonymous"
             image.src = material
             image.addEventListener("error", event => {
+                console.log("ERROR in image loading", event)
                 window.mode = "basic"
                 window.base_color = [1, 0, 1, 0]
             })
             image.addEventListener("load", event => {
                 window.mode = "texture"
-
+                window.texture_image = image
+                
                 // Bind the texture
                 let slot = 0
                 let texture = gl.createTexture()
+
                 gl.activeTexture(gl.TEXTURE0 + slot)
                 gl.bindTexture(gl.TEXTURE_2D, texture)
 
@@ -365,14 +378,20 @@ window.addEventListener('load', async (event) => {
                     gl.RGBA,
                     gl.RGBA,
                     gl.UNSIGNED_BYTE,
-                    image,
+                    window.texture_image,
                 )
+
+                gl.generateMipmap(gl.TEXTURE_2D)
+                window.texture_slot = slot
+                window.texture = texture
             })
         } else {
             // Fall back to basic (no entry)
+            console.log("Default image mode")
             window.mode = "basic"
             window.base_color = [1, 1, 1, .3]
         }
+        console.log(window.mode, window.base_color)
     })
     
     fillScreen()
