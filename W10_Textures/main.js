@@ -7,7 +7,7 @@ const IdentityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])
  * Given the source code of a vertex and fragment shader, compiles them,
  * and returns the linked program.
  */
-function compileShader(vs_source, fs_source) {
+function compileShader(vs_source, basic_fs_source, texture_fs_source) {
     const vs = gl.createShader(gl.VERTEX_SHADER)
     gl.shaderSource(vs, vs_source)
     gl.compileShader(vs)
@@ -16,17 +16,25 @@ function compileShader(vs_source, fs_source) {
         throw Error("Vertex shader compilation failed")
     }
 
-    const fs = gl.createShader(gl.FRAGMENT_SHADER)
-    gl.shaderSource(fs, fs_source)
-    gl.compileShader(fs)
-    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(fs))
-        throw Error("Fragment shader compilation failed")
+    const fs_basic = gl.createShader(gl.FRAGMENT_SHADER)
+    gl.shaderSource(fs_basic, basic_fs_source)
+    gl.compileShader(fs_basic)
+    if (!gl.getShaderParameter(fs_basic, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(fs_basic))
+        throw Error("Fragment shader (basic) compilation failed")
+    }
+
+    const fs_texture = gl.createShader(gl.FRAGMENT_SHADER)
+    gl.shaderSource(fs_texture, texture_fs_source)
+    gl.compileShader(fs_texture)
+    if (!gl.getShaderParameter(fs_texture, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(fs_texture))
+        throw Error("Fragment shader (texture) compilation failed")
     }
 
     const program = gl.createProgram()
     gl.attachShader(program, vs)
-    gl.attachShader(program, fs)
+    gl.attachShader(program, fs_basic)
     gl.linkProgram(program)
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         console.error(gl.getProgramInfoLog(program))
@@ -40,7 +48,26 @@ function compileShader(vs_source, fs_source) {
     }
     program.uniforms = uniforms
 
-    return program
+    const texture_program = gl.createProgram()
+    gl.attachShader(texture_program, vs)
+    gl.attachShader(texture_program, fs_texture)
+    gl.linkProgram(texture_program)
+    if (!gl.getProgramParameter(texture_program, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(texture_program))
+        throw Error("Linking failed")
+    }
+    
+    const texture_uniforms = {}
+    for(let i=0; i<gl.getProgramParameter(texture_program, gl.ACTIVE_UNIFORMS); i+=1) {
+        let info = gl.getActiveUniform(texture_program, i)
+        texture_uniforms[info.name] = gl.getUniformLocation(texture_program, info.name)
+    }
+    texture_program.uniforms = texture_uniforms
+
+    return {
+        basic: program,
+        texture: texture_program,
+    }
 }
 
 /**
@@ -125,10 +152,11 @@ function period(period_in_seconds) {
 function draw(seconds) {
     gl.clearColor(...IlliniBlue) // f(...[1,2,3]) means f(1,2,3)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    let program = window.programs[window.mode]
     gl.useProgram(program)
 
     // Default brown color
-    gl.uniform4fv(program.uniforms.color, [.7, .4, .2, 1])
+    gl.uniform4fv(program.uniforms.color, window.base_color)
 
     // Slow down the animation here
     seconds = seconds / 2
@@ -275,8 +303,9 @@ window.addEventListener('load', async (event) => {
         {antialias: false, depth:true, preserveDrawingBuffer:true}
     )
     let vs = await fetch('src/vertex.glsl').then(res => res.text())
-    let fs = await fetch('src/fragment.glsl').then(res => res.text())
-    window.program = compileShader(vs,fs)
+    let basic_fs = await fetch('src/fragment_basic.glsl').then(res => res.text())
+    let texture_fs = await fetch('src/fragment_texture.glsl').then(res => res.text())
+    window.programs = compileShader(vs, basic_fs, texture_fs)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -285,6 +314,11 @@ window.addEventListener('load', async (event) => {
     document.querySelector('#submit').addEventListener('click', event => {
         const gridsize = Number(document.querySelector('#gridsize').value) || 2
         const faults = Number(document.querySelector('#faults').value) || 0
+        
+        window.terrain = setup_geometry(generate_terrain(gridsize, faults))
+    })
+
+    document.querySelector("#material").addEventListener("change", event => {
         const material = document.querySelector("#material").value
         window.mode = null
         window.base_color = null
@@ -294,10 +328,10 @@ window.addEventListener('load', async (event) => {
         } else if (/^#[0-9a-f]{8}$/i.test(material)) {
             window.mode = "basic"
             window.base_color = [
-                Number("0x" + material.substr(1, 2)),
-                Number("0x" + material.substr(3, 2)),
-                Number("0x" + material.substr(5, 2)),
-                Number("0x" + material.substr(7, 2)),
+                Number("0x" + material.substr(1, 2)) / 255,
+                Number("0x" + material.substr(3, 2)) / 255,
+                Number("0x" + material.substr(5, 2)) / 255,
+                Number("0x" + material.substr(7, 2)) / 255,
             ]
         } else if (/[.](jpg|png)$/.test(material)) {
             // TODO: Start here by adding the image processing code
@@ -339,8 +373,6 @@ window.addEventListener('load', async (event) => {
             window.mode = "basic"
             window.base_color = [1, 1, 1, .3]
         }
-        
-        window.terrain = setup_geometry(generate_terrain(gridsize, faults))
     })
     
     fillScreen()
