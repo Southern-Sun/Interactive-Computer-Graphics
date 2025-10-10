@@ -2,12 +2,14 @@
 precision highp float;
 
 uniform vec4 color;
+uniform sampler2D texture;
 
 uniform vec3 light_direction;
 uniform vec3 light_color;
 uniform vec3 halfway;
 
 in vec3 vnormal;
+in vec2 vtexture_coord;
 
 out vec4 fragColor;
 
