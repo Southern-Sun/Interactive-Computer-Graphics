@@ -215,17 +215,6 @@ function generate_terrain(gridsize, faults) {
         grid[0][i] = [grid[0][i][0], grid[0][i][1], new_height]
     }
 
-    // Compute normals (old -- model)
-    // for (let i = 0; i < elements.length; i++) {
-    //     edge1 = sub(grid[0][elements[i][1]], grid[0][elements[i][0]])
-    //     edge2 = sub(grid[0][elements[i][2]], grid[0][elements[i][0]])
-    //     normal = cross(edge1, edge2)
-
-    //     for (let j = 0; j < 3; j++) {
-    //         // Add the computed normal to each of the points' normal attribute
-    //         grid[1][elements[i][j]] = add(grid[1][elements[i][j]], normal)
-    //     }
-    // }
     // Compute normals (new -- grid-based)
     for (let i = 0; i < grid[0].length; i++) {
         clamp = (value) => { return Math.max(Math.min(value, gridsize - 1), 0)}
@@ -296,7 +285,23 @@ window.addEventListener('load', async (event) => {
     document.querySelector('#submit').addEventListener('click', event => {
         const gridsize = Number(document.querySelector('#gridsize').value) || 2
         const faults = Number(document.querySelector('#faults').value) || 0
-        // TODO: generate a new gridsize-by-gridsize grid here, then apply faults to it
+        const material = document.querySelector("#material").value
+        window.mode = null
+        if (material == "") {
+            window.mode = "basic"
+            window.base_color = [1, 1, 1, .3]
+        } else if (/^#[0-9a-f]{8}$/i.test(material)) {
+            window.mode = "basic"
+            window.base_color = [
+                Number("0x" + material.substr(1, 2)),
+                Number("0x" + material.substr(3, 2)),
+                Number("0x" + material.substr(5, 2)),
+                Number("0x" + material.substr(7, 2)),
+            ]
+        } else if (/[.](jpg|png)$/.test(material)) {
+            // 
+            window.mode = "texture"
+        }
         window.terrain = setup_geometry(generate_terrain(gridsize, faults))
     })
     
