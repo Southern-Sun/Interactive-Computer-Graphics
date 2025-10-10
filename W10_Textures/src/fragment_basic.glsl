@@ -16,8 +16,8 @@ void main() {
     float blinn = pow(max(dot(normal, halfway), 0.0), 150.0);
     float lambert = dot(normal, light_direction);
     fragColor = vec4(
-        color.rgb * lambert * light_color
-        + light_color * blinn,
-        color.a
+        color.rgb * lambert * light_color * (1.0 - color.a)
+        + light_color * blinn * color.a,
+        1.0
     );
 }

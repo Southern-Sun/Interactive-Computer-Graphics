@@ -317,11 +317,11 @@ window.addEventListener('load', async (event) => {
         
         window.terrain = setup_geometry(generate_terrain(gridsize, faults))
     })
-
+    
+    window.mode = "basic"
+    window.base_color = [1, 1, 1, .3]
     document.querySelector("#material").addEventListener("change", event => {
         const material = document.querySelector("#material").value
-        window.mode = null
-        window.base_color = null
         if (material == "") {
             window.mode = "basic"
             window.base_color = [1, 1, 1, .3]
