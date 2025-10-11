@@ -6,9 +6,11 @@ import numpy as np
 from PIL import Image
 
 from src.raytracer import Raytracer
+from src.geometry import Sphere
+from src.light import LightSource
 
-def read_vector(*vector: str) -> np.ndarray:
-    return np.array((int(x) for x in vector))
+def read_vector(vector: str) -> np.ndarray:
+    return np.array(tuple(float(x) for x in vector))
 
 def process_file(command_file: str) -> Path:
     raytracer = Raytracer()
@@ -50,7 +52,7 @@ def process_file(command_file: str) -> Path:
 
                 # 6.3 State setting
                 case ["color", *vector]:
-                    raytracer.color = read_vector(vector)
+                    raytracer.current_color = read_vector(vector)
                 case ["texcoord", u, v]:
                     pass
                 case ["texture", texture_file]:
@@ -65,10 +67,18 @@ def process_file(command_file: str) -> Path:
                     pass
 
                 # 6.4 Geometry
-                case ["sphere", *vector, radius]:
-                    pass
+                case ["sphere", *center, radius]:
+                    sphere = Sphere(
+                        center=read_vector(center),
+                        radius=float(radius),
+                        color=raytracer.current_color
+                    )
+                    raytracer.geometry.append(sphere)
                 case ["sun", *vector]:
-                    pass
+                    light = LightSource(
+                        direction=read_vector(vector), color=raytracer.current_color
+                    )
+                    raytracer.light_sources.append(light)
                 case ["bulb", *vector]:
                     pass
                 case ["plane", A, B, C, D]:
