@@ -91,5 +91,8 @@ def process_file(command_file: str) -> Path:
     raytracer.render()
 
 if __name__ == "__main__":
-    command_file = sys.argv[1]
+    if "Raytracer" not in str(Path.cwd()) and "Interactive" in str(Path.cwd()):
+        command_file = "W11-12_Raytracer/files/ray-sun.txt"
+    else:
+        command_file = sys.argv[1]
     process_file(command_file)

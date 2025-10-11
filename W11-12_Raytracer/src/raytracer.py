@@ -48,7 +48,16 @@ class Raytracer:
         origin: np.ndarray,
         normal: np.ndarray,
     ):
-        return np.array((0,0,0))
+        lights = [np.array((0,0,0))]
+        for light in self.light_sources:
+            intersection = self.get_first_intersection(origin, light.get_normalized_direction())
+            if intersection is not None:
+                # Case: shadow
+                continue
+            
+            lights.append(light.color * np.dot(normal, light.get_normalized_direction()))
+
+        return sum(lights)
 
     def emit_ray(
         self, 
@@ -56,6 +65,7 @@ class Raytracer:
         direction: np.ndarray,
         depth: int = 0,
         last_normal: np.ndarray = None,
+        debug=False,
     ) -> tuple[np.ndarray, float]:
         """Emits a ray, which may emit additional rays recursively. Returns a color"""
         # 1. Normalize the direction
@@ -63,6 +73,10 @@ class Raytracer:
         # 2. See if and what it intersects with
         intersection = self.get_first_intersection(origin, direction)
 
+        if debug:
+            print(f"{origin=}")
+            print(f"{direction=}")
+            print(f"{intersection=}")
         # 3. If it has no intersections...
         # -- This is a ray that's heading off into the night
         # -- We should probably check another ray to see if its going to hit a light source at least
@@ -87,6 +101,11 @@ class Raytracer:
         t, geometry = intersection
         intersection_point = t * direction + origin
         normal = geometry.normal_at(intersection_point)
+        if debug:
+            print(f"{t=}")
+            print(f"{intersection_point=}")
+            print(f"{normal=}")
+
         if depth >= self.bounces:
             # Again, shoot a light ray
             return geometry.color * self.emit_light_rays(
@@ -160,7 +179,10 @@ class Raytracer:
                 s_y = (self.height - 2 * y) / max(self.width, self.height)
                 direction = self.forward + s_x * self.right + s_y * self.up
 
-                pixel_color, alpha = self.emit_ray(origin=self.eye, direction=direction)
+                debug = False
+                if x == 55 and y == 45:
+                    debug = True
+                pixel_color, alpha = self.emit_ray(origin=self.eye, direction=direction, debug=debug)
                 pixel_color = np.clip(pixel_color, 0.0, 1.0)
                 # Convert to sRGB
                 color = np.where(
