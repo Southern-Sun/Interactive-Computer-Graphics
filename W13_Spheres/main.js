@@ -126,6 +126,7 @@ class Sphere {
         this.position = [Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1]
         this.velocity = [0, 0, 0]
         this.color = [Math.random(), Math.random(), Math.random(), 1.0]
+        this.elasticity = .9
     }
 
     is_colliding(other) {
@@ -161,9 +162,11 @@ function draw(seconds) {
     gl.clearColor(...[.8,.8,.8, 1.0]) // f(...[1,2,3]) means f(1,2,3)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-    const NUMBER_OF_SPHERES = 1
-    const RESET_WINDOW = 5.0
-    const GRAVITY = [0, 0, -.0098]
+    const NUMBER_OF_SPHERES = 50
+    const RESET_WINDOW = 15.0
+    const GRAVITY = [0, 0, -9.8]
+    const SLOW_DOWN_FACTOR = 2
+    const BOUNDING_BOX_SIZE = 2
     if (window.animation_time < seconds) {
         // In this case, we are starting a new animation, which requires setup
         window.animation_time = window.animation_time + RESET_WINDOW
@@ -174,7 +177,8 @@ function draw(seconds) {
     }
 
     // Find delta time and cap it at .1s
-    var delta_time = seconds - window.last_draw_time
+    var delta_time = (seconds - window.last_draw_time) / SLOW_DOWN_FACTOR
+    window.last_draw_time = seconds
     if (delta_time > .1) {
         delta_time = .1
     }
@@ -193,8 +197,27 @@ function draw(seconds) {
                 continue
             }
             // Resolve any collisions as they are found
-
-
+            let collision_vector = normalize(sub(spheres[i].position, spheres[j].position))
+            let net_collision_speed = 
+                dot(spheres[i].velocity, collision_vector) -
+                dot(spheres[j].velocity, collision_vector)
+            if (net_collision_speed > 0.0) {
+                continue
+            }
+            spheres[i].velocity = sub(
+                spheres[i].velocity,
+                mul(
+                    collision_vector,
+                    .5 * (1 + spheres[i].elasticity) * net_collision_speed,
+                )
+            )
+            spheres[j].velocity = add(
+                spheres[j].velocity,
+                mul(
+                    collision_vector,
+                    .5 * (1 + spheres[j].elasticity) * net_collision_speed,
+                )
+            )
         }
     }
 
@@ -209,14 +232,14 @@ function draw(seconds) {
         // Check if any sphere has collided with the cube walls
         // Resolve those collisions by moving the sphere and bouncing the cubes back
         for (let j = 0; j < 3; j++) {
-            if (spheres[i].position[j] > 1.0) {
-                spheres[i].position[j] = 1.0
-                spheres[i].velocity[j] = spheres[i].velocity[j] * -0.9
+            if (spheres[i].position[j] + spheres[i].radius > BOUNDING_BOX_SIZE / 2) {
+                spheres[i].position[j] = 1.0 - spheres[i].radius
+                spheres[i].velocity[j] = spheres[i].velocity[j] * -1 * spheres[i].elasticity
             }
 
-            if (spheres[i].position[j] < -1.0) {
-                spheres[i].position[j] = -1.0
-                spheres[i].velocity[j] = spheres[i].velocity[j] * -0.9
+            if (spheres[i].position[j] - spheres[i].radius < -BOUNDING_BOX_SIZE / 2) {
+                spheres[i].position[j] = -1.0 + spheres[i].radius
+                spheres[i].velocity[j] = spheres[i].velocity[j] * -1 * spheres[i].elasticity
             }
         }
     }
