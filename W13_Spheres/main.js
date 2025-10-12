@@ -125,7 +125,7 @@ class Sphere {
         this.radius = .15
         this.position = [Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1]
         this.velocity = 0
-        this.color = [Math.random(), Math.random(), Math.random()]
+        this.color = [Math.random(), Math.random(), Math.random(), 1.0]
     }
 
     is_colliding(other) {
@@ -145,6 +145,14 @@ class Sphere {
     get translation_matrix() {
         return m4trans(...this.position)
     }
+
+    get scale_matrix() {
+        return m4scale(this.radius, this.radius, this.radius)
+    }
+
+    get model_view_matrix() {
+        return m4mul(this.translation_matrix, this.scale_matrix)
+    }
 }
 
 
@@ -156,12 +164,12 @@ function draw(seconds) {
         // In this case, we are starting a new animation, which requires setup
         window.animation_time = window.animation_time + 15.0
         window.spheres = []
-        // for (let i = 0; i < 50; i++) {
-        //     window.spheres.push(new Sphere())
-        // }
-        let sphere = new Sphere()
-        sphere.position = [0, 0, 0]
-        window.spheres.push(sphere)
+        for (let i = 0; i < 50; i++) {
+            window.spheres.push(new Sphere())
+        }
+        // let sphere = new Sphere()
+        // sphere.position = [0, 0, 0]
+        // window.spheres.push(sphere)
     }
 
     // Find delta time and cap it at .1s
@@ -181,7 +189,7 @@ function draw(seconds) {
     gl.useProgram(program)
 
     // Setup our parameters
-    const EYE = [1, 1, 1.5]
+    const EYE = [2, 2, 1.5]
     var light_direction = [1, 1, 1]
     var halfway_vector = normalize(add(light_direction, EYE))
     gl.uniform3fv(program.uniforms.light_direction, normalize(light_direction))
@@ -197,7 +205,7 @@ function draw(seconds) {
     for (let i = 0; i < spheres.length; i++) {
         gl.uniform4fv(program.uniforms.color, spheres[i].color)
         gl.uniformMatrix4fv(
-            program.uniforms.model_view, false, m4mul(view_matrix, spheres[i].translation_matrix)
+            program.uniforms.model_view, false, m4mul(view_matrix, spheres[i].model_view_matrix)
         )
         gl.drawElements(sphere.mode, sphere.count, sphere.type, 0)
     }
