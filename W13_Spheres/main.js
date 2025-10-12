@@ -124,7 +124,7 @@ class Sphere {
     constructor() {
         this.radius = .15
         this.position = [Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1]
-        this.velocity = 0
+        this.velocity = [0, 0, 0]
         this.color = [Math.random(), Math.random(), Math.random(), 1.0]
     }
 
@@ -160,30 +160,65 @@ class Sphere {
 function draw(seconds) {
     gl.clearColor(...[.8,.8,.8, 1.0]) // f(...[1,2,3]) means f(1,2,3)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+    const NUMBER_OF_SPHERES = 1
+    const RESET_WINDOW = 5.0
+    const GRAVITY = [0, 0, -.0098]
     if (window.animation_time < seconds) {
         // In this case, we are starting a new animation, which requires setup
-        window.animation_time = window.animation_time + 15.0
+        window.animation_time = window.animation_time + RESET_WINDOW
         window.spheres = []
-        for (let i = 0; i < 50; i++) {
+        for (let i = 0; i < NUMBER_OF_SPHERES; i++) {
             window.spheres.push(new Sphere())
         }
-        // let sphere = new Sphere()
-        // sphere.position = [0, 0, 0]
-        // window.spheres.push(sphere)
     }
 
     // Find delta time and cap it at .1s
+    var delta_time = seconds - window.last_draw_time
+    if (delta_time > .1) {
+        delta_time = .1
+    }
 
     // Loop over spheres
     // Apply acceleration due to gravity
     // Check if each sphere is colliding with any sphere after it in the list
     // Resolve any collisions as they are found
+    for (let i = 0; i < spheres.length; i++) {
+        // Apply acceleration due to gravity
+        spheres[i].velocity = add(spheres[i].velocity, mul(GRAVITY, delta_time))
+
+        for (let j = i; j < spheres.length; j++) {
+            // Check if each sphere is colliding with any sphere after it in the list
+            if (!spheres[i].is_colliding(spheres[j])) {
+                continue
+            }
+            // Resolve any collisions as they are found
+
+
+        }
+    }
+
+    // Loop over spheres
     // Move all the spheres 1 step
     // Check if any sphere has collided with the cube walls
     // Resolve those collisions by moving the sphere and bouncing the cubes back
-    
     for (let i = 0; i < spheres.length; i++) {
+        // Move all the spheres 1 step
+        spheres[i].position = add(spheres[i].position, mul(spheres[i].velocity, delta_time))
 
+        // Check if any sphere has collided with the cube walls
+        // Resolve those collisions by moving the sphere and bouncing the cubes back
+        for (let j = 0; j < 3; j++) {
+            if (spheres[i].position[j] > 1.0) {
+                spheres[i].position[j] = 1.0
+                spheres[i].velocity[j] = spheres[i].velocity[j] * -0.9
+            }
+
+            if (spheres[i].position[j] < -1.0) {
+                spheres[i].position[j] = -1.0
+                spheres[i].velocity[j] = spheres[i].velocity[j] * -0.9
+            }
+        }
     }
 
     gl.useProgram(program)
@@ -250,6 +285,7 @@ window.addEventListener('load', async (event) => {
     let geometry = await fetch("assets/sphere.json").then(res => res.json())
     window.sphere = setup_geometry(geometry)
     window.animation_time = 0.0
+    window.last_draw_time = 0.0
     
     fillScreen()
     window.addEventListener('resize', fillScreen)
